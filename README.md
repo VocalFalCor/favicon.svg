@@ -2,7 +2,7 @@
 
 Pulse is a local-first music discovery MVP. Its landing page renders SVG artist nodes whose size, glow, color, and pulse rate follow each artist's HeatScore. Artists can be registered and tracks uploaded only with a rights confirmation.
 
-See the [FalCor Pulse proof-of-concept stack diagram](./docs/falcor-pulse-stack.md) for the architecture, configuration variables, and proposed agentic integration boundary.
+See the [FalCor Pulse proof-of-concept stack diagram](./docs/falcor-pulse-stack.md) for the editable architecture and variable inventory, or the [standalone SVG export](./docs/falcor-pulse-stack.svg).
 
 ## Run locally with Docker
 
