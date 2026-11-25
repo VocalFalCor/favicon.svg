@@ -83,6 +83,8 @@ def init_db() -> None:
                 area TEXT NOT NULL,
                 genre TEXT NOT NULL DEFAULT '',
                 bio TEXT NOT NULL DEFAULT '',
+                heat_gain_hits INTEGER NOT NULL DEFAULT 0,
+                heat_gain_last_result TEXT NOT NULL DEFAULT 'waiting',
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS tracks (
@@ -120,6 +122,14 @@ def init_db() -> None:
             connection.execute("ALTER TABLE artists ADD COLUMN genre TEXT NOT NULL DEFAULT ''")
         if "bio" not in artist_columns:
             connection.execute("ALTER TABLE artists ADD COLUMN bio TEXT NOT NULL DEFAULT ''")
+        if "heat_gain_hits" not in artist_columns:
+            connection.execute(
+                "ALTER TABLE artists ADD COLUMN heat_gain_hits INTEGER NOT NULL DEFAULT 0"
+            )
+        if "heat_gain_last_result" not in artist_columns:
+            connection.execute(
+                "ALTER TABLE artists ADD COLUMN heat_gain_last_result TEXT NOT NULL DEFAULT 'waiting'"
+            )
         connection.commit()
 
 
@@ -245,7 +255,9 @@ def delete_message(message_id: str) -> dict:
     return {"deleted": True, "id": message_id}
 
 
-def artist_snapshot(connection: sqlite3.Connection, artist: sqlite3.Row, now: datetime) -> dict:
+def artist_heat_metrics(
+    connection: sqlite3.Connection, artist: sqlite3.Row, now: datetime
+) -> tuple[int, int, float]:
     artist_id = artist["id"]
     recent_cutoff = timestamp(now - timedelta(hours=24))
     recent_listens = connection.execute(
@@ -275,6 +287,35 @@ def artist_snapshot(connection: sqlite3.Connection, artist: sqlite3.Row, now: da
     signal_time = datetime.fromisoformat(last_signal or artist["created_at"])
     days_since_signal = max(0.0, (now - signal_time).total_seconds() / 86400)
     score = heat_score(recent_listens, local_votes, days_since_signal)
+    return recent_listens, local_votes, score
+
+
+def record_heat_check(
+    connection: sqlite3.Connection,
+    artist: sqlite3.Row,
+    score_before: float,
+    now: datetime,
+) -> tuple[bool, int]:
+    score_after = artist_heat_metrics(connection, artist, now)[2]
+    increased = score_after > score_before
+    result = "gain" if increased else "held"
+    connection.execute(
+        """
+        UPDATE artists
+        SET heat_gain_hits = heat_gain_hits + ?, heat_gain_last_result = ?
+        WHERE id = ?
+        """,
+        (int(increased), result, artist["id"]),
+    )
+    hits = connection.execute(
+        "SELECT heat_gain_hits FROM artists WHERE id = ?", (artist["id"],)
+    ).fetchone()["heat_gain_hits"]
+    return increased, hits
+
+
+def artist_snapshot(connection: sqlite3.Connection, artist: sqlite3.Row, now: datetime) -> dict:
+    artist_id = artist["id"]
+    recent_listens, local_votes, score = artist_heat_metrics(connection, artist, now)
     visuals = heat_visuals(score)
     tracks = connection.execute(
         "SELECT id, title, created_at FROM tracks WHERE artist_id = ? ORDER BY created_at",
@@ -288,6 +329,8 @@ def artist_snapshot(connection: sqlite3.Connection, artist: sqlite3.Row, now: da
         "bio": artist["bio"],
         "can_vote": artist["area"].casefold() == profile_area().casefold(),
         "heat_score": score,
+        "heat_gain_hits": artist["heat_gain_hits"],
+        "heat_gain_last_result": artist["heat_gain_last_result"],
         "recent_listens": recent_listens,
         "local_votes": local_votes,
         **visuals,
@@ -429,15 +472,24 @@ def record_listen(track_id: str) -> dict:
     day = now.date().isoformat()
     with closing(connect_db()) as connection:
         with connection:
+            connection.execute("BEGIN IMMEDIATE")
             track = connection.execute(
-                "SELECT id FROM tracks WHERE id = ?",
+                """
+                SELECT artists.*
+                FROM tracks JOIN artists ON artists.id = tracks.artist_id
+                WHERE tracks.id = ?
+                """,
                 (track_id,),
             ).fetchone()
             if track is None:
                 raise HTTPException(status_code=404, detail="Track not found")
+            score_before = artist_heat_metrics(connection, track, now)[2]
             connection.execute(
                 "INSERT INTO listens (id, track_id, profile_id, played_at) VALUES (?, ?, ?, ?)",
                 (str(uuid.uuid4()), track_id, profile_id(), timestamp(now)),
+            )
+            heat_gain_hit, heat_gain_hits = record_heat_check(
+                connection, track, score_before, now
             )
             listens_today = connection.execute(
                 "SELECT COUNT(*) AS count FROM listens WHERE profile_id = ? AND substr(played_at, 1, 10) = ?",
@@ -458,6 +510,8 @@ def record_listen(track_id: str) -> dict:
         "free_tier": "unlimited",
         "vote_required": False,
         "vote_prompt_due": listens_today > MAX_DAILY_LISTENS_BEFORE_VOTE_PROMPT and not voted_today,
+        "heat_gain_hit": heat_gain_hit,
+        "heat_gain_hits": heat_gain_hits,
     }
 
 
@@ -468,14 +522,16 @@ def vote_for_artist(artist_id: str) -> dict:
     day = now.date().isoformat()
     with closing(connect_db()) as connection:
         with connection:
+            connection.execute("BEGIN IMMEDIATE")
             artist = connection.execute(
-                "SELECT id, name, area FROM artists WHERE id = ?",
+                "SELECT * FROM artists WHERE id = ?",
                 (artist_id,),
             ).fetchone()
             if artist is None:
                 raise HTTPException(status_code=404, detail="Artist not found")
             if artist["area"].casefold() != area.casefold():
                 raise HTTPException(status_code=403, detail="You can vote only for artists in your configured area")
+            score_before = artist_heat_metrics(connection, artist, now)[2]
             try:
                 connection.execute(
                     """
@@ -486,8 +542,17 @@ def vote_for_artist(artist_id: str) -> dict:
                 )
             except sqlite3.IntegrityError as error:
                 raise HTTPException(status_code=409, detail="You already voted for this artist today") from error
+            heat_gain_hit, heat_gain_hits = record_heat_check(
+                connection, artist, score_before, now
+            )
     publish_pulse_event("vote_cast")
-    return {"artist_id": artist_id, "artist_name": artist["name"], "vote_recorded": True}
+    return {
+        "artist_id": artist_id,
+        "artist_name": artist["name"],
+        "vote_recorded": True,
+        "heat_gain_hit": heat_gain_hit,
+        "heat_gain_hits": heat_gain_hits,
+    }
 
 
 @app.get("/api/profile", dependencies=[Depends(require_api_token)])

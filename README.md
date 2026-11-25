@@ -33,6 +33,8 @@ HeatScore is a 0–100 score:
 
 The score maps to SVG node radius (12–48), a cyan-to-violet-to-pink heat color/glow, and a 4.5-to-1.1 second pulse. Each live node shows its score and artist name. LIVEPULSE™ sends server-sent events after artist, track, listen, and vote changes; 30-second polling remains as a reconnect fallback. With an empty catalog the page shows clearly labeled sample nodes at 18, 55, and 90, not invented artists. Freshness uses the latest listen, or the artist's registration time before their first listen.
 
+Each artist also has a persistent **Heat gain hits** counter. On every recorded listen or local vote, Pulse compares that artist's HeatScore immediately before and after the signal: a rise adds one hit; a flat or lower score holds the count without resetting it. The page shows the cumulative hits and whether the last check gained or held. Refreshes, track uploads, and time-based score decay do not count as signal checks.
+
 The free tier has unlimited listening. Starting with the 51st listen in a UTC day, the API can prompt the profile to vote for a local artist; voting is optional and never blocks listening. An artist is votable when its area matches `PULSE_USER_AREA`. This is a profile setting, not location verification.
 
 Starter badges are:
@@ -45,13 +47,13 @@ The initial release has one configured local profile and one server-side API tok
 
 ## API
 
-- `GET /api/pulse` — artist catalog, metrics, and visual properties.
+- `GET /api/pulse` — artist catalog, metrics, visual properties, and per-artist Heat gain hits / last-check status.
 - `GET /api/pulse/events` — public server-sent event stream; event payloads contain only change type and timestamp.
 - `POST /api/artists` — add an artist (`name`, `area`, optional `genre` and `bio`).
 - `POST /api/tracks` — upload audio (`artist_id`, `title`, `rights_confirmed`, `file`); supported formats: MP3, WAV, OGG, FLAC, M4A, AAC; 25 MB maximum.
 - `GET /api/tracks/{id}/audio` — stream an uploaded track.
-- `POST /api/tracks/{id}/listen` — record a listen and report whether an optional vote prompt is due.
-- `POST /api/artists/{id}/vote` — cast one vote per artist per UTC day.
+- `POST /api/tracks/{id}/listen` — record a listen, report whether an optional vote prompt is due, and return the Heat gain check result.
+- `POST /api/artists/{id}/vote` — cast one vote per artist per UTC day and return the Heat gain check result.
 - `GET /api/profile` — free-tier status and badge progress.
 
 Mutating endpoints use `Authorization: Bearer <PULSE_API_TOKEN>`. Interactive API docs are available at `/docs`.

@@ -10,14 +10,16 @@ flowchart TB
     subgraph pulse["Pulse API · live on host Uvicorn; Docker Compose configured"]
         api["FastAPI + Uvicorn<br/>GET /api/pulse · artists · tracks<br/>listens · votes · profile"]
         score["HeatScore engine<br/>40% recent listens · 30% local votes<br/>30% freshness"]
+        gains["Per-artist Heat gain hits<br/>+1 when a listen/vote raises score<br/>otherwise hold; never reset"]
         viz["SVG node mapping<br/>radius · heat color/glow · pulse rate"]
-        sqlite[("SQLite<br/>Host: messages.db<br/>Compose: /data/pulse.db")]
+        sqlite[("SQLite<br/>artist scores + gain counters<br/>Host: messages.db · Compose: /data/pulse.db")]
         audio[("Authorized uploads<br/>Host: uploads/<br/>Compose: /data/uploads")]
         badges["Free-tier rules<br/>unlimited listens · optional vote prompt<br/>Listener · Scout · Pulse Setter"]
         api <--> sqlite
         api <--> audio
         api --> score
         score --> viz
+        score --> gains --> sqlite
         score --> badges
     end
 
@@ -50,6 +52,7 @@ flowchart TB
 | Experience | FastAPI-served landing page; LIVEPULSE™ pushes live SVG refreshes; 30-second polling fallback; authorized audio controls |
 | API | FastAPI served by Uvicorn; public pulse summary and SSE events; bearer-token protected writes; profile, badges, listens, votes |
 | HeatScore | 0–100: `40 × min(listens_24h / 50, 1) + 30 × min(local_votes_24h / 10, 1) + 30 × max(1 - days_since_signal / 30, 0)` |
+| Heat gain hits | Each listen/local vote compares pre/post score; add one only on an increase. Persistent per-artist count holds on flat/lower checks; refreshes/uploads do not count |
 | Node rendering | Radius `12 + 0.36 × score`; cyan → violet → pink color/glow; pulse period `4.5 - 0.034 × score` seconds |
 | Free tier | Unlimited listens; prompt to vote beginning with listen 51 per UTC day; voting stays optional |
 | Badges | Listener (10 listens), Scout (5 local votes), Pulse Setter (first HeatScore contribution); first two thresholds are configurable |

@@ -64,6 +64,8 @@
       .artist-card h3 { margin: 0; font-size: 1.05rem; }
       .artist-card p { margin: 5px 0 14px; font-size: .86rem; }
       .score { color: var(--heat); font-weight: 800; font-variant-numeric: tabular-nums; }
+      .gain-counter { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; margin: 4px 0 12px; color: #b9c5e1; font-size: .8rem; }
+      .gain-counter strong { color: var(--heat); font-variant-numeric: tabular-nums; }
       .meter { height: 5px; border-radius: 99px; background: #252b43; overflow: hidden; margin: 12px 0; }
       .meter span { display: block; height: 100%; width: var(--score); background: var(--heat); box-shadow: 0 0 12px var(--heat); }
       .track { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 13px; }
@@ -126,7 +128,7 @@
         <div class="section-head">
           <div>
             <h2>On the pulse</h2>
-            <p>HeatScore blends 40% recent listens, 30% local votes, and 30% freshness.</p>
+            <p>HeatScore blends listens, local votes, and freshness. A gain hit is +1 when a listen or vote raises an artist’s score; flat or lower checks hold the count.</p>
           </div>
           <div class="token-box">
             <input id="api-token" type="password" autocomplete="off" placeholder="Local API token" aria-label="Local API token">
@@ -294,6 +296,19 @@
           area.textContent = [artist.area, artist.genre].filter(Boolean).join(" · ");
           const activity = document.createElement("p");
           activity.textContent = `${artist.recent_listens} recent listens · ${artist.local_votes} local votes`;
+          const gainCounter = document.createElement("div");
+          gainCounter.className = "gain-counter";
+          gainCounter.setAttribute("role", "status");
+          const gainCount = document.createElement("strong");
+          gainCount.textContent = `Heat gain hits: ${artist.heat_gain_hits}`;
+          const checkStatus = document.createElement("span");
+          const checkLabels = {
+            waiting: "Awaiting listen/vote check",
+            gain: "Last check: score rose (+1)",
+            held: "Last check: held"
+          };
+          checkStatus.textContent = checkLabels[artist.heat_gain_last_result] || "Check status unavailable";
+          gainCounter.append(gainCount, checkStatus);
           const meter = document.createElement("div");
           meter.className = "meter";
           const fill = document.createElement("span");
@@ -305,7 +320,7 @@
             bio.textContent = artist.bio;
             card.append(bio);
           }
-          card.append(activity, meter);
+          card.append(activity, gainCounter, meter);
 
           for (const track of artist.tracks) {
             const row = document.createElement("div");
@@ -320,7 +335,13 @@
                 const response = await fetch(`/api/tracks/${encodeURIComponent(track.id)}/listen`, { method: "POST", headers: headers() });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || "Could not record listen.");
-                if (result.vote_prompt_due) showNotice("You’ve passed 50 listens today. Consider voting for a local artist to help tune the pulse.");
+                if (result.vote_prompt_due) {
+                  showNotice("You’ve passed 50 listens today. Consider voting for a local artist to help tune the pulse.");
+                } else if (result.heat_gain_hit) {
+                  showNotice(`${artist.name}: HeatScore rose — gain hit ${result.heat_gain_hits}.`);
+                } else {
+                  showNotice(`${artist.name}: HeatScore check held — gain count remains ${result.heat_gain_hits}.`);
+                }
                 const audio = document.createElement("audio");
                 audio.controls = true;
                 audio.src = `/api/tracks/${encodeURIComponent(track.id)}/audio`;
@@ -336,7 +357,10 @@
                 const response = await fetch(`/api/artists/${encodeURIComponent(artist.id)}/vote`, { method: "POST", headers: headers() });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || "Could not record vote.");
-                showNotice(`Vote recorded for ${artist.name}. Thanks for helping the local pulse.`);
+                const heatResult = result.heat_gain_hit
+                  ? `HeatScore rose; gain hit ${result.heat_gain_hits}.`
+                  : `HeatScore check held; gain count remains ${result.heat_gain_hits}.`;
+                showNotice(`Vote recorded for ${artist.name}. ${heatResult}`);
                 await loadPulse();
               } catch (error) {
                 showNotice(error.message, true);

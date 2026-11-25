@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sqlite3
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -164,7 +165,7 @@ def test_init_db_adds_optional_artist_fields_to_existing_database(tmp_path, monk
 
     with sqlite3.connect(database) as connection:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(artists)")}
-    assert {"genre", "bio"}.issubset(columns)
+    assert {"genre", "bio", "heat_gain_hits", "heat_gain_last_result"}.issubset(columns)
 
 
 def test_upload_requires_rights_and_supported_format(client, monkeypatch):
@@ -239,3 +240,48 @@ def test_upload_stream_and_optional_vote_prompt(client, monkeypatch):
     profile = client.get("/api/profile", headers=headers).json()
     assert profile["badges"][0]["earned"] is True
     assert profile["badges"][0]["threshold"] == 2
+
+
+def test_heat_gain_counter_increments_only_when_score_rises(client, monkeypatch):
+    fixed_now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    monkeypatch.setattr(main, "utc_now", lambda: fixed_now)
+    monkeypatch.setenv("PULSE_API_TOKEN", "test-token")
+    monkeypatch.setenv("PULSE_USER_AREA", "Local")
+    headers = {"Authorization": "Bearer test-token"}
+    artist = client.post(
+        "/api/artists",
+        json={"name": "Gain Test", "area": "Local"},
+        headers=headers,
+    ).json()
+    initial = next(
+        item for item in client.get("/api/pulse").json()["artists"] if item["id"] == artist["id"]
+    )
+    assert initial["heat_gain_hits"] == 0
+    assert initial["heat_gain_last_result"] == "waiting"
+
+    upload = client.post(
+        "/api/tracks",
+        headers=headers,
+        data={"artist_id": artist["id"], "title": "Signal", "rights_confirmed": "true"},
+        files={"file": ("signal.mp3", b"sample audio", "audio/mpeg")},
+    )
+    assert upload.status_code == 201
+    track_id = upload.json()["id"]
+
+    for _ in range(50):
+        response = client.post(f"/api/tracks/{track_id}/listen", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["heat_gain_hit"] is True
+
+    no_gain = client.post(f"/api/tracks/{track_id}/listen", headers=headers).json()
+    assert no_gain["heat_gain_hit"] is False
+    assert no_gain["heat_gain_hits"] == 50
+
+    vote = client.post(f"/api/artists/{artist['id']}/vote", headers=headers).json()
+    assert vote["heat_gain_hit"] is True
+    assert vote["heat_gain_hits"] == 51
+    snapshot = next(
+        item for item in client.get("/api/pulse").json()["artists"] if item["id"] == artist["id"]
+    )
+    assert snapshot["heat_gain_hits"] == 51
+    assert snapshot["heat_gain_last_result"] == "gain"

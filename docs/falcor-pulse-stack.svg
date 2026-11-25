@@ -74,7 +74,8 @@
   <text x="956" y="303" class="body">40% recent listens · max 50 / 24h</text>
   <text x="956" y="338" class="body">30% local votes · max 10 / 24h</text>
   <text x="956" y="373" class="body">30% freshness · 30-day decay</text>
-  <text x="956" y="416" class="small">Score range: 0–100</text>
+  <text x="956" y="407" class="small">Score range: 0–100</text>
+  <text x="956" y="428" class="small">Per-artist +1 on a rise; flat/lower checks hold</text>
 
   <rect x="1390" y="220" width="330" height="225" rx="18" class="card-current"/>
   <text x="1416" y="260" class="card-title">SVG pulse nodes</text>
@@ -99,9 +100,9 @@
 
   <rect x="460" y="495" width="390" height="175" rx="18" class="card-current"/>
   <text x="486" y="535" class="card-title">Mode-specific data paths</text>
-  <text x="486" y="572" class="body">Host SQLite: messages.db · audio: uploads/</text>
-  <text x="486" y="604" class="mono">Compose DB: /data/pulse.db</text>
-  <text x="486" y="636" class="body">Compose audio: /data/uploads (pulse_data)</text>
+  <text x="486" y="572" class="body">SQLite: listens · votes · per-artist gain hits</text>
+  <text x="486" y="604" class="mono">Host: messages.db · uploads/</text>
+  <text x="486" y="636" class="body">Compose: /data/pulse.db · /data/uploads</text>
 
   <rect x="930" y="495" width="380" height="175" rx="18" class="card-current"/>
   <text x="956" y="535" class="card-title">Free tier + badges</text>
