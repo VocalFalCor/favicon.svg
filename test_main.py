@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -97,11 +99,18 @@ def test_artist_writes_require_token_and_votes_are_local_and_daily(client, monke
     ).status_code == 401
     artist = client.post(
         "/api/artists",
-        json={"name": "Echo", "area": "Toronto"},
+        json={"name": "Echo", "area": "Toronto", "genre": "Test genre", "bio": "Test bio"},
         headers=headers,
     )
     assert artist.status_code == 201
     artist_id = artist.json()["id"]
+    assert artist.json()["genre"] == "Test genre"
+    assert artist.json()["bio"] == "Test bio"
+    pulse_artist = next(
+        item for item in client.get("/api/pulse").json()["artists"] if item["id"] == artist_id
+    )
+    assert pulse_artist["genre"] == "Test genre"
+    assert pulse_artist["bio"] == "Test bio"
 
     outside_area = client.post(
         "/api/artists",
@@ -116,6 +125,21 @@ def test_artist_writes_require_token_and_votes_are_local_and_daily(client, monke
     assert profile["voting_required"] is False
     assert profile["badges"][1]["progress"] == 1
     assert profile["badges"][2]["earned"] is True
+
+
+def test_init_db_adds_optional_artist_fields_to_existing_database(tmp_path, monkeypatch):
+    database = tmp_path / "legacy.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE artists (id TEXT PRIMARY KEY, name TEXT NOT NULL, area TEXT NOT NULL, created_at TEXT NOT NULL)"
+        )
+    monkeypatch.setattr(main, "DB_FILE", str(database))
+
+    main.init_db()
+
+    with sqlite3.connect(database) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(artists)")}
+    assert {"genre", "bio"}.issubset(columns)
 
 
 def test_upload_requires_rights_and_supported_format(client, monkeypatch):

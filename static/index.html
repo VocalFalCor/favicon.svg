@@ -47,7 +47,8 @@
       .token-box, .panel, .artist-card { border: 1px solid var(--line); background: var(--panel); border-radius: 16px; }
       .token-box { padding: 10px 12px; display: flex; gap: 8px; align-items: center; max-width: 390px; }
       input, button { font: inherit; }
-      input[type="password"], input[type="text"], input[type="file"] { color: #e8ebfa; background: #0b1021; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; min-width: 0; }
+      input[type="password"], input[type="text"], input[type="file"], textarea { color: #e8ebfa; background: #0b1021; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; min-width: 0; }
+      textarea { font: inherit; min-height: 84px; resize: vertical; }
       input[type="password"] { width: 190px; }
       button { color: #07121d; background: var(--cyan); border: 0; border-radius: 9px; padding: 10px 14px; cursor: pointer; font-weight: 750; }
       button.secondary { background: #252e4a; color: #e3e8fb; }
@@ -146,7 +147,9 @@
           <p>Register a local artist before adding their authorized tracks.</p>
           <form id="artist-form">
             <input name="name" type="text" maxlength="100" placeholder="Artist name" required>
-            <input name="area" type="text" maxlength="100" placeholder="Artist area (e.g. Toronto)" required>
+            <input name="area" type="text" maxlength="100" placeholder="Artist area (e.g. Toronto)" value="Local" required>
+            <input name="genre" type="text" maxlength="80" placeholder="Genre (optional)">
+            <textarea name="bio" maxlength="500" placeholder="Short artist bio (optional)"></textarea>
             <button type="submit">Add artist</button>
           </form>
         </div>
@@ -248,13 +251,21 @@
           score.textContent = `${artist.heat_score.toFixed(1)}°`;
           top.append(title, score);
           const area = document.createElement("p");
-          area.textContent = `${artist.area} · ${artist.recent_listens} recent listens · ${artist.local_votes} local votes`;
+          area.textContent = [artist.area, artist.genre].filter(Boolean).join(" · ");
+          const activity = document.createElement("p");
+          activity.textContent = `${artist.recent_listens} recent listens · ${artist.local_votes} local votes`;
           const meter = document.createElement("div");
           meter.className = "meter";
           const fill = document.createElement("span");
           fill.style.setProperty("--score", `${artist.heat_score}%`);
           meter.append(fill);
-          card.append(top, area, meter);
+          card.append(top, area);
+          if (artist.bio) {
+            const bio = document.createElement("p");
+            bio.textContent = artist.bio;
+            card.append(bio);
+          }
+          card.append(activity, meter);
 
           for (const track of artist.tracks) {
             const row = document.createElement("div");
@@ -357,7 +368,12 @@
           const response = await fetch("/api/artists", {
             method: "POST",
             headers: { ...headers(), "Content-Type": "application/json" },
-            body: JSON.stringify({ name: form.get("name"), area: form.get("area") })
+            body: JSON.stringify({
+              name: form.get("name"),
+              area: form.get("area"),
+              genre: form.get("genre"),
+              bio: form.get("bio")
+            })
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.detail || "Could not add artist.");

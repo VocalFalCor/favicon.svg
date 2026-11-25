@@ -46,7 +46,7 @@ The initial release has one configured local profile and one server-side API tok
 ## API
 
 - `GET /api/pulse` — artist catalog, metrics, and visual properties.
-- `POST /api/artists` — add an artist (`name`, `area`).
+- `POST /api/artists` — add an artist (`name`, `area`, optional `genre` and `bio`).
 - `POST /api/tracks` — upload audio (`artist_id`, `title`, `rights_confirmed`, `file`); supported formats: MP3, WAV, OGG, FLAC, M4A, AAC; 25 MB maximum.
 - `GET /api/tracks/{id}/audio` — stream an uploaded track.
 - `POST /api/tracks/{id}/listen` — record a listen and report whether an optional vote prompt is due.

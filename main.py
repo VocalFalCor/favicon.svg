@@ -40,6 +40,8 @@ class MessageCreate(BaseModel):
 class ArtistCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     area: str = Field(min_length=1, max_length=100)
+    genre: str = Field(default="", max_length=80)
+    bio: str = Field(default="", max_length=500)
 
     @field_validator("name", "area")
     @classmethod
@@ -48,6 +50,11 @@ class ArtistCreate(BaseModel):
         if not value:
             raise ValueError("This field cannot be blank")
         return value
+
+    @field_validator("genre", "bio")
+    @classmethod
+    def strip_optional_fields(cls, value: str) -> str:
+        return value.strip()
 
 
 def connect_db() -> sqlite3.Connection:
@@ -70,6 +77,8 @@ def init_db() -> None:
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 area TEXT NOT NULL,
+                genre TEXT NOT NULL DEFAULT '',
+                bio TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS tracks (
@@ -100,6 +109,13 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS votes_voted_at_idx ON votes(voted_at);
             """
         )
+        artist_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(artists)").fetchall()
+        }
+        if "genre" not in artist_columns:
+            connection.execute("ALTER TABLE artists ADD COLUMN genre TEXT NOT NULL DEFAULT ''")
+        if "bio" not in artist_columns:
+            connection.execute("ALTER TABLE artists ADD COLUMN bio TEXT NOT NULL DEFAULT ''")
         connection.commit()
 
 
@@ -243,6 +259,8 @@ def artist_snapshot(connection: sqlite3.Connection, artist: sqlite3.Row, now: da
         "id": artist_id,
         "name": artist["name"],
         "area": artist["area"],
+        "genre": artist["genre"],
+        "bio": artist["bio"],
         "can_vote": artist["area"].casefold() == profile_area().casefold(),
         "heat_score": score,
         "recent_listens": recent_listens,
@@ -274,10 +292,20 @@ def create_artist(payload: ArtistCreate) -> dict:
     with closing(connect_db()) as connection:
         with connection:
             connection.execute(
-                "INSERT INTO artists (id, name, area, created_at) VALUES (?, ?, ?, ?)",
-                (artist_id, payload.name, payload.area, created_at),
+                """
+                INSERT INTO artists (id, name, area, genre, bio, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (artist_id, payload.name, payload.area, payload.genre, payload.bio, created_at),
             )
-    return {"id": artist_id, "name": payload.name, "area": payload.area, "created_at": created_at}
+    return {
+        "id": artist_id,
+        "name": payload.name,
+        "area": payload.area,
+        "genre": payload.genre,
+        "bio": payload.bio,
+        "created_at": created_at,
+    }
 
 
 @app.post("/api/tracks", status_code=201, dependencies=[Depends(require_api_token)])

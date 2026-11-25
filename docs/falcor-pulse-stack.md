@@ -53,7 +53,7 @@ flowchart TB
 | Node rendering | Radius `12 + 0.36 × score`; cyan → violet → pink color/glow; pulse period `4.5 - 0.034 × score` seconds |
 | Free tier | Unlimited listens; prompt to vote beginning with listen 51 per UTC day; voting stays optional |
 | Badges | Listener (10 listens), Scout (5 local votes), Pulse Setter (first HeatScore contribution); first two thresholds are configurable |
-| Persistence | SQLite and uploaded authorized audio share the persistent `pulse_data` volume |
+| Persistence | SQLite artist details (name, area, genre, bio) and uploaded authorized audio share the persistent `pulse_data` volume |
 | Analysis | JupyterLab reaches the API over the Compose network; Jupyter token is separate from the API bearer token |
 
 With no artists in the database, the landing page shows sample HeatScore nodes at 18, 55, and 90. Those are illustrative only; populated nodes always use the live API scores.

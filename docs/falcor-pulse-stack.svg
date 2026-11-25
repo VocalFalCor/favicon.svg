@@ -92,9 +92,9 @@
 
   <rect x="460" y="495" width="390" height="175" rx="18" class="card-current"/>
   <text x="486" y="535" class="card-title">Persistent data</text>
-  <text x="486" y="572" class="body">SQLite: artists · tracks · listens · votes</text>
+  <text x="486" y="572" class="body">SQLite: artists (name / area / genre / bio)</text>
   <text x="486" y="604" class="mono">/data/pulse.db</text>
-  <text x="486" y="636" class="body">Authorized audio → /data/uploads</text>
+  <text x="486" y="636" class="body">Tracks · listens · votes; audio → /data/uploads</text>
 
   <rect x="930" y="495" width="380" height="175" rx="18" class="card-current"/>
   <text x="956" y="535" class="card-title">Free tier + badges</text>
