@@ -7,3 +7,10 @@ __pycache__/
 .config/
 .local/
 .env
+*.db
+*.db-shm
+*.db-wal
+uploads/
+.pytest_cache/
+dist/
+build/

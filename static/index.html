@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080b18">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <title>Pulse — local music, in motion</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #080b18;
+        color: #eef1ff;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        --panel: #11162a;
+        --muted: #9aa4c4;
+        --line: #252c48;
+        --cyan: #35d6ff;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-width: 320px; }
+      header, main, footer { width: min(1120px, calc(100% - 40px)); margin: auto; }
+      header { display: flex; justify-content: space-between; align-items: center; padding: 26px 0; }
+      .brand { display: flex; align-items: center; gap: 12px; font-size: 1.15rem; font-weight: 800; letter-spacing: .12em; }
+      .brand svg { width: 38px; height: 38px; }
+      .status { color: var(--muted); font-size: .9rem; }
+      .status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #46e6aa; margin-right: 9px; box-shadow: 0 0 12px #46e6aa; }
+      .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 42px; align-items: center; padding: 52px 0 64px; }
+      .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .2em; font-weight: 700; font-size: .76rem; }
+      h1 { font-size: clamp(2.8rem, 6vw, 5.2rem); line-height: .98; letter-spacing: -.06em; margin: 18px 0; }
+      h1 span { color: var(--cyan); }
+      p { color: var(--muted); line-height: 1.65; }
+      .hero-copy > p { max-width: 480px; font-size: 1.05rem; }
+      .chip { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 8px 13px; color: #c6cce2; font-size: .8rem; margin: 8px 7px 0 0; }
+      .visual { border: 1px solid var(--line); border-radius: 24px; background: radial-gradient(ellipse at center, #171d37 0%, #0c1020 68%); padding: 18px; overflow: hidden; }
+      .visual svg { display: block; width: 100%; min-height: 280px; }
+      .heat-node { transform-box: fill-box; transform-origin: center; animation: breathe var(--pulse-duration) ease-in-out infinite; }
+      .heat-node circle { fill: var(--heat); filter: drop-shadow(0 0 var(--glow) var(--heat)); opacity: .88; }
+      .heat-node text { fill: #f5f7ff; font-size: 11px; text-anchor: middle; paint-order: stroke; stroke: #090c19; stroke-width: 3px; stroke-linejoin: round; }
+      @keyframes breathe { 50% { transform: scale(1.13); opacity: .72; } }
+      .visual-caption { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); padding: 0 8px 5px; }
+      .section-head { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin: 0 0 20px; }
+      h2 { font-size: 1.55rem; margin: 0; }
+      .section-head p { margin: 7px 0 0; font-size: .9rem; }
+      .token-box, .panel, .artist-card { border: 1px solid var(--line); background: var(--panel); border-radius: 16px; }
+      .token-box { padding: 10px 12px; display: flex; gap: 8px; align-items: center; max-width: 390px; }
+      input, button { font: inherit; }
+      input[type="password"], input[type="text"], input[type="file"] { color: #e8ebfa; background: #0b1021; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; min-width: 0; }
+      input[type="password"] { width: 190px; }
+      button { color: #07121d; background: var(--cyan); border: 0; border-radius: 9px; padding: 10px 14px; cursor: pointer; font-weight: 750; }
+      button.secondary { background: #252e4a; color: #e3e8fb; }
+      button:hover { filter: brightness(1.1); }
+      button:disabled { opacity: .55; cursor: wait; }
+      .library { padding: 26px 0 56px; }
+      .artist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+      .artist-card { padding: 18px; }
+      .artist-top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+      .artist-card h3 { margin: 0; font-size: 1.05rem; }
+      .artist-card p { margin: 5px 0 14px; font-size: .86rem; }
+      .score { color: var(--heat); font-weight: 800; font-variant-numeric: tabular-nums; }
+      .meter { height: 5px; border-radius: 99px; background: #252b43; overflow: hidden; margin: 12px 0; }
+      .meter span { display: block; height: 100%; width: var(--score); background: var(--heat); box-shadow: 0 0 12px var(--heat); }
+      .track { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 13px; }
+      .track-title { font-size: .9rem; margin-bottom: 8px; }
+      .track-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .empty { border: 1px dashed #353e61; border-radius: 14px; padding: 28px; color: var(--muted); text-align: center; grid-column: 1 / -1; }
+      .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-bottom: 64px; }
+      .panel { padding: 20px; }
+      .panel h2 { font-size: 1.15rem; margin-bottom: 5px; }
+      .panel p { font-size: .86rem; margin: 0 0 15px; }
+      form { display: grid; gap: 10px; }
+      form input[type="checkbox"] { accent-color: var(--cyan); }
+      label { color: #c4cbe0; font-size: .85rem; }
+      .notice { min-height: 24px; color: var(--cyan); font-size: .88rem; margin: 10px 0 0; }
+      .fine-print { font-size: .78rem !important; color: #818ba9 !important; }
+      .profile { margin: 0 0 14px; }
+      .badge-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+      .badge-tag { border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; color: #8d96b2; font-size: .82rem; }
+      .badge-tag.earned { border-color: #35d6ff80; color: #b7f2ff; background: #35d6ff12; box-shadow: 0 0 12px #35d6ff18; }
+      footer { color: #818ba9; border-top: 1px solid var(--line); padding: 20px 0 30px; font-size: .8rem; }
+      @media (max-width: 760px) {
+        .hero { grid-template-columns: 1fr; padding: 30px 0 44px; gap: 26px; }
+        .tools { grid-template-columns: 1fr; }
+        .section-head { align-items: start; flex-direction: column; }
+        .token-box { width: 100%; max-width: none; }
+      }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <svg viewBox="0 0 48 48" role="img" aria-label="Pulse logo">
+          <defs><linearGradient id="logo-glow"><stop stop-color="#35d6ff"/><stop offset="1" stop-color="#ff38a0"/></linearGradient></defs>
+          <rect width="48" height="48" rx="14" fill="#121a31"/>
+          <path d="M7 25h8l5-12 8 24 5-12h8" fill="none" stroke="url(#logo-glow)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        FALCOR / PULSE
+      </div>
+      <div class="status" id="connection">Connecting to the pulse</div>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow">Independent music, in motion</div>
+          <h1>Feel the<br><span>local pulse.</span></h1>
+          <p>Discover community-uploaded tracks and see the scene come alive. Every artist node grows, glows, and moves with its live HeatScore.</p>
+          <span class="chip">Free listening · unlimited</span>
+          <span class="chip">Local artist discovery</span>
+          <span class="chip">Artist-approved uploads</span>
+        </div>
+        <div class="visual">
+          <svg id="pulse-nodes" viewBox="0 0 700 360" role="img" aria-label="Local music HeatScore visualization"></svg>
+          <div class="visual-caption"><span id="pulse-label">LIVE COMMUNITY SIGNAL</span><span id="artist-count">waiting for artists</span></div>
+        </div>
+      </section>
+
+      <section class="library">
+        <div class="section-head">
+          <div>
+            <h2>On the pulse</h2>
+            <p>HeatScore blends 40% recent listens, 30% local votes, and 30% freshness.</p>
+          </div>
+          <div class="token-box">
+            <input id="api-token" type="password" autocomplete="off" placeholder="Local API token" aria-label="Local API token">
+            <button id="refresh" class="secondary" type="button">Refresh</button>
+          </div>
+        </div>
+        <div id="artists" class="artist-grid" aria-live="polite">
+          <div class="empty">Tuning in…</div>
+        </div>
+        <p id="notice" class="notice" role="status"></p>
+      </section>
+
+      <section class="panel profile" aria-label="Free tier and badges">
+        <h2 id="profile-title">Free listener tier</h2>
+        <p id="profile-copy">Unlimited listens. Voting is optional; after 50 daily listens, you’ll see a local-scene voting prompt.</p>
+        <div id="badges" class="badge-list"><span class="badge-tag">Add your local API token to view badges</span></div>
+      </section>
+
+      <section class="tools" aria-label="Artist and track tools">
+        <div class="panel">
+          <h2>Add an artist</h2>
+          <p>Register a local artist before adding their authorized tracks.</p>
+          <form id="artist-form">
+            <input name="name" type="text" maxlength="100" placeholder="Artist name" required>
+            <input name="area" type="text" maxlength="100" placeholder="Artist area (e.g. Toronto)" required>
+            <button type="submit">Add artist</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Share authorized music</h2>
+          <p>Uploads are limited to 25 MB per track. Only upload audio you own or are licensed to distribute.</p>
+          <form id="track-form">
+            <input name="artist_id" type="text" placeholder="Artist ID" required>
+            <input name="title" type="text" maxlength="160" placeholder="Track title" required>
+            <input name="file" type="file" accept=".mp3,.wav,.ogg,.flac,.m4a,.aac" required>
+            <label><span><input name="rights_confirmed" type="checkbox" required> I have the rights to share this recording.</span></label>
+            <button type="submit">Upload track</button>
+          </form>
+        </div>
+      </section>
+    </main>
+    <footer>Free tier: unlimited listening. After 50 listens in a UTC day, local voting is suggested—not required. Your API token stays in this tab only.</footer>
+    <script>
+      const svgNS = "http://www.w3.org/2000/svg";
+      const tokenInput = document.getElementById("api-token");
+      const notice = document.getElementById("notice");
+      const headers = () => ({ Authorization: `Bearer ${tokenInput.value.trim()}` });
+
+      function showNotice(message, error = false) {
+        notice.textContent = message;
+        notice.style.color = error ? "#ff8ba7" : "";
+      }
+
+      function svgElement(tag, attributes = {}) {
+        const node = document.createElementNS(svgNS, tag);
+        for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+        return node;
+      }
+
+      function renderNodes(artists, previewNodes) {
+        const svg = document.getElementById("pulse-nodes");
+        svg.replaceChildren();
+        const isPreview = artists.length === 0;
+        const nodes = isPreview ? previewNodes : artists;
+        document.getElementById("pulse-label").textContent = isPreview ? "HEATSCORE SCALE PREVIEW" : "LIVE COMMUNITY SIGNAL";
+
+        nodes.forEach((artist, index) => {
+          const angle = (index / nodes.length) * Math.PI * 2 - Math.PI / 2;
+          const orbit = nodes.length === 1 ? 0 : 72 + (index % 3) * 29;
+          const cx = 350 + Math.cos(angle) * orbit;
+          const cy = 175 + Math.sin(angle) * orbit * .62;
+          const group = svgElement("g", { class: "heat-node", transform: `translate(${cx} ${cy})` });
+          group.setAttribute("role", "img");
+          group.setAttribute(
+            "aria-label",
+            isPreview ? `Sample HeatScore ${artist.heat_score}` : `${artist.name}, HeatScore ${artist.heat_score}`
+          );
+          group.style.setProperty("--heat", artist.color);
+          group.style.setProperty("--glow", `${artist.glow}px`);
+          group.style.setProperty("--pulse-duration", `${artist.pulse_seconds}s`);
+          group.append(svgElement("circle", { r: artist.node_radius }));
+          const name = svgElement("text", { y: artist.node_radius + 17 });
+          name.textContent = isPreview
+            ? `SAMPLE ${artist.heat_score}°`
+            : `${artist.name.length > 18 ? `${artist.name.slice(0, 17)}…` : artist.name} · ${artist.heat_score.toFixed(0)}°`;
+          group.append(name);
+          svg.append(group);
+        });
+      }
+
+      function button(label, handler, secondary = false) {
+        const element = document.createElement("button");
+        element.type = "button";
+        element.textContent = label;
+        if (secondary) element.className = "secondary";
+        element.addEventListener("click", handler);
+        return element;
+      }
+
+      function renderArtists(artists) {
+        const container = document.getElementById("artists");
+        container.replaceChildren();
+        document.getElementById("artist-count").textContent = artists.length
+          ? `${artists.length} ${artists.length === 1 ? "artist" : "artists"}`
+          : "sample scores · no artists yet";
+        if (!artists.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "No artists yet. Add an artist below, then upload an authorized track.";
+          container.append(empty);
+          return;
+        }
+
+        for (const artist of artists) {
+          const card = document.createElement("article");
+          card.className = "artist-card";
+          card.style.setProperty("--heat", artist.color);
+          const top = document.createElement("div");
+          top.className = "artist-top";
+          const title = document.createElement("h3");
+          title.textContent = artist.name;
+          const score = document.createElement("span");
+          score.className = "score";
+          score.textContent = `${artist.heat_score.toFixed(1)}°`;
+          top.append(title, score);
+          const area = document.createElement("p");
+          area.textContent = `${artist.area} · ${artist.recent_listens} recent listens · ${artist.local_votes} local votes`;
+          const meter = document.createElement("div");
+          meter.className = "meter";
+          const fill = document.createElement("span");
+          fill.style.setProperty("--score", `${artist.heat_score}%`);
+          meter.append(fill);
+          card.append(top, area, meter);
+
+          for (const track of artist.tracks) {
+            const row = document.createElement("div");
+            row.className = "track";
+            const trackTitle = document.createElement("div");
+            trackTitle.className = "track-title";
+            trackTitle.textContent = track.title;
+            const actions = document.createElement("div");
+            actions.className = "track-actions";
+            const listen = button("Listen", async () => {
+              try {
+                const response = await fetch(`/api/tracks/${encodeURIComponent(track.id)}/listen`, { method: "POST", headers: headers() });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || "Could not record listen.");
+                if (result.vote_prompt_due) showNotice("You’ve passed 50 listens today. Consider voting for a local artist to help tune the pulse.");
+                const audio = document.createElement("audio");
+                audio.controls = true;
+                audio.src = `/api/tracks/${encodeURIComponent(track.id)}/audio`;
+                row.append(audio);
+                await audio.play();
+                await loadPulse();
+              } catch (error) {
+                showNotice(error.message, true);
+              }
+            });
+            const vote = button("Vote local", async () => {
+              try {
+                const response = await fetch(`/api/artists/${encodeURIComponent(artist.id)}/vote`, { method: "POST", headers: headers() });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || "Could not record vote.");
+                showNotice(`Vote recorded for ${artist.name}. Thanks for helping the local pulse.`);
+                await loadPulse();
+              } catch (error) {
+                showNotice(error.message, true);
+              }
+            }, true);
+            vote.disabled = !artist.can_vote;
+            vote.title = artist.can_vote ? "Vote for this local artist" : "Voting is limited to your configured area";
+            actions.append(listen, vote);
+            row.append(trackTitle, actions);
+            card.append(row);
+          }
+          container.append(card);
+        }
+      }
+
+      async function loadPulse() {
+        try {
+          const response = await fetch("/api/pulse");
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || "Pulse is unavailable.");
+          renderNodes(data.artists, data.preview_nodes);
+          renderArtists(data.artists);
+          document.getElementById("connection").textContent = "Live pulse";
+          await loadProfile();
+        } catch (error) {
+          document.getElementById("connection").textContent = "Pulse offline";
+          showNotice(error.message, true);
+        }
+      }
+
+      async function loadProfile() {
+        const badges = document.getElementById("badges");
+        badges.replaceChildren();
+        if (!tokenInput.value.trim()) {
+          const prompt = document.createElement("span");
+          prompt.className = "badge-tag";
+          prompt.textContent = "Add your local API token to view badges";
+          badges.append(prompt);
+          return;
+        }
+        try {
+          const response = await fetch("/api/profile", { headers: headers() });
+          const profile = await response.json();
+          if (!response.ok) throw new Error(profile.detail || "Could not load badges.");
+          document.getElementById("profile-title").textContent = `${profile.profile} · ${profile.tier} tier`;
+          document.getElementById("profile-copy").textContent =
+            `${profile.daily_listens} listens today · unlimited daily plays · voting optional after ${profile.vote_prompt_after}`;
+          for (const badge of profile.badges) {
+            const tag = document.createElement("span");
+            tag.className = `badge-tag${badge.earned ? " earned" : ""}`;
+            tag.textContent = `${badge.earned ? "✓ " : ""}${badge.name} · ${badge.progress}/${badge.threshold}`;
+            tag.title = badge.description;
+            badges.append(tag);
+          }
+        } catch (error) {
+          const message = document.createElement("span");
+          message.className = "badge-tag";
+          message.textContent = error.message;
+          badges.append(message);
+        }
+      }
+
+      document.getElementById("refresh").addEventListener("click", loadPulse);
+      tokenInput.addEventListener("change", loadProfile);
+      document.getElementById("artist-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        try {
+          const response = await fetch("/api/artists", {
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
+            body: JSON.stringify({ name: form.get("name"), area: form.get("area") })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "Could not add artist.");
+          event.currentTarget.reset();
+          document.querySelector('#track-form [name="artist_id"]').value = result.id;
+          showNotice(`Artist added. Their ID is ${result.id}; use it when uploading a track.`);
+          await loadPulse();
+        } catch (error) {
+          showNotice(error.message, true);
+        }
+      });
+      document.getElementById("track-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        form.set("rights_confirmed", form.get("rights_confirmed") === "on" ? "true" : "false");
+        try {
+          const response = await fetch("/api/tracks", { method: "POST", headers: headers(), body: form });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "Could not upload track.");
+          event.currentTarget.reset();
+          showNotice(`“${result.title}” is now in the library.`);
+          await loadPulse();
+        } catch (error) {
+          showNotice(error.message, true);
+        }
+      });
+      loadPulse();
+      window.setInterval(loadPulse, 30000);
+    </script>
+  </body>
+</html>
