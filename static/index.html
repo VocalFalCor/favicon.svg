@@ -71,6 +71,9 @@
       .track { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 13px; }
       .track-title { font-size: .9rem; margin-bottom: 8px; }
       .track-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .now-playing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 1.4fr); gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 12px 14px; margin-top: 14px; color: #d7ddf0; }
+      .now-playing[hidden] { display: none; }
+      .now-playing audio { width: 100%; }
       .empty { border: 1px dashed #353e61; border-radius: 14px; padding: 28px; color: var(--muted); text-align: center; grid-column: 1 / -1; }
       .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-bottom: 64px; }
       .panel { padding: 20px; }
@@ -89,6 +92,7 @@
       @media (max-width: 760px) {
         .hero { grid-template-columns: 1fr; padding: 30px 0 44px; gap: 26px; }
         .tools { grid-template-columns: 1fr; }
+        .now-playing { grid-template-columns: 1fr; }
         .section-head { align-items: start; flex-direction: column; }
         .token-box { width: 100%; max-width: none; }
       }
@@ -138,6 +142,10 @@
         <div id="artists" class="artist-grid" aria-live="polite">
           <div class="empty">Tuning in…</div>
         </div>
+        <div id="now-playing" class="now-playing" hidden>
+          <strong id="now-playing-title" aria-live="polite"></strong>
+          <audio id="audio-player" controls preload="none" aria-label="Now playing"></audio>
+        </div>
         <p id="notice" class="notice" role="status"></p>
       </section>
 
@@ -179,6 +187,9 @@
       const notice = document.getElementById("notice");
       const connection = document.getElementById("connection");
       const liveActivity = document.getElementById("live-activity");
+      const nowPlaying = document.getElementById("now-playing");
+      const nowPlayingTitle = document.getElementById("now-playing-title");
+      const audioPlayer = document.getElementById("audio-player");
       const headers = () => ({ Authorization: `Bearer ${tokenInput.value.trim()}` });
       let liveEvents;
 
@@ -342,11 +353,15 @@
                 } else {
                   showNotice(`${artist.name}: HeatScore check held — gain count remains ${result.heat_gain_hits}.`);
                 }
-                const audio = document.createElement("audio");
-                audio.controls = true;
-                audio.src = `/api/tracks/${encodeURIComponent(track.id)}/audio`;
-                row.append(audio);
-                await audio.play();
+                nowPlayingTitle.textContent = `Now playing: ${track.title} · ${artist.name}`;
+                nowPlaying.hidden = false;
+                audioPlayer.src = `/api/tracks/${encodeURIComponent(track.id)}/audio`;
+                try {
+                  await audioPlayer.play();
+                } catch (error) {
+                  if (error.name !== "NotAllowedError") throw error;
+                  showNotice("Playback is ready. Press Play in the audio controls to start.");
+                }
                 await loadPulse();
               } catch (error) {
                 showNotice(error.message, true);
