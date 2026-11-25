@@ -1,3 +1,5 @@
+import asyncio
+import json
 import sqlite3
 
 import pytest
@@ -83,6 +85,29 @@ def test_landing_page_and_empty_pulse(client):
     pulse = client.get("/api/pulse").json()
     assert pulse["artists"] == []
     assert [node["heat_score"] for node in pulse["preview_nodes"]] == [18, 55, 90]
+
+
+def test_livepulse_publishes_events_to_subscribers_from_worker_threads():
+    async def verify_event_delivery():
+        previous_loop = main.pulse_event_loop
+        subscriber = asyncio.Queue(maxsize=1)
+        main.pulse_event_loop = asyncio.get_running_loop()
+        main.pulse_subscribers.add(subscriber)
+        try:
+            await asyncio.to_thread(main.publish_pulse_event, "vote_cast")
+            event = json.loads(await asyncio.wait_for(subscriber.get(), timeout=1))
+            assert event["type"] == "vote_cast"
+            assert event["at"]
+        finally:
+            main.pulse_subscribers.discard(subscriber)
+            main.pulse_event_loop = previous_loop
+
+    asyncio.run(verify_event_delivery())
+
+
+def test_livepulse_endpoint_uses_server_sent_events():
+    response = asyncio.run(main.pulse_events())
+    assert response.media_type == "text/event-stream"
 
 
 def test_artist_writes_require_token_and_votes_are_local_and_daily(client, monkeypatch):

@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import secrets
 import sqlite3
@@ -7,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 
@@ -30,6 +32,8 @@ ALLOWED_AUDIO_TYPES = {
 }
 
 bearer_scheme = HTTPBearer(auto_error=False)
+pulse_event_loop: asyncio.AbstractEventLoop | None = None
+pulse_subscribers: set[asyncio.Queue[str]] = set()
 
 
 class MessageCreate(BaseModel):
@@ -121,8 +125,14 @@ def init_db() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    global pulse_event_loop
     init_db()
-    yield
+    pulse_event_loop = asyncio.get_running_loop()
+    try:
+        yield
+    finally:
+        pulse_event_loop = None
+        pulse_subscribers.clear()
 
 
 app = FastAPI(title="Pulse", description="Local music discovery and HeatScore API", lifespan=lifespan)
@@ -169,6 +179,21 @@ def positive_setting(name: str, default: int) -> int:
     if value < 1:
         raise RuntimeError(f"{name} must be a positive integer")
     return value
+
+
+def _deliver_pulse_event(payload: str) -> None:
+    for subscriber in tuple(pulse_subscribers):
+        if subscriber.full():
+            subscriber.get_nowait()
+        subscriber.put_nowait(payload)
+
+
+def publish_pulse_event(event_type: str) -> None:
+    loop = pulse_event_loop
+    if loop is None or loop.is_closed():
+        return
+    payload = json.dumps({"type": event_type, "at": timestamp(utc_now())})
+    loop.call_soon_threadsafe(_deliver_pulse_event, payload)
 
 
 def fetch_messages(connection: sqlite3.Connection) -> list[dict]:
@@ -285,6 +310,30 @@ def get_pulse() -> dict:
     }
 
 
+@app.get("/api/pulse/events")
+async def pulse_events() -> StreamingResponse:
+    async def event_stream():
+        subscriber: asyncio.Queue[str] = asyncio.Queue(maxsize=1)
+        pulse_subscribers.add(subscriber)
+        try:
+            yield "event: ready\ndata: {}\n\n"
+            while True:
+                try:
+                    payload = await asyncio.wait_for(subscriber.get(), timeout=20)
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+                    continue
+                yield f"event: pulse\ndata: {payload}\n\n"
+        finally:
+            pulse_subscribers.discard(subscriber)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/api/artists", status_code=201, dependencies=[Depends(require_api_token)])
 def create_artist(payload: ArtistCreate) -> dict:
     artist_id = str(uuid.uuid4())
@@ -298,6 +347,7 @@ def create_artist(payload: ArtistCreate) -> dict:
                 """,
                 (artist_id, payload.name, payload.area, payload.genre, payload.bio, created_at),
             )
+    publish_pulse_event("artist_added")
     return {
         "id": artist_id,
         "name": payload.name,
@@ -354,6 +404,7 @@ def upload_track(
     except sqlite3.Error:
         destination.unlink()
         raise
+    publish_pulse_event("track_uploaded")
     return {"id": track_id, "artist_id": artist_id, "title": title, "created_at": created_at}
 
 
@@ -400,6 +451,7 @@ def record_listen(track_id: str) -> dict:
                 """,
                 (profile_id(), day, profile_area()),
             ).fetchone() is not None
+    publish_pulse_event("listen_recorded")
     return {
         "track_id": track_id,
         "daily_listens": listens_today,
@@ -434,6 +486,7 @@ def vote_for_artist(artist_id: str) -> dict:
                 )
             except sqlite3.IntegrityError as error:
                 raise HTTPException(status_code=409, detail="You already voted for this artist today") from error
+    publish_pulse_event("vote_cast")
     return {"artist_id": artist_id, "artist_name": artist["name"], "vote_recorded": True}
 
 

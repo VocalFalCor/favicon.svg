@@ -31,7 +31,7 @@ HeatScore is a 0–100 score:
 + 30 × max(1 - days since last signal / 30, 0)
 ```
 
-The score maps to SVG node radius (12–48), a cyan-to-violet-to-pink heat color/glow, and a 4.5-to-1.1 second pulse. Each live node shows its score and artist name; the page refreshes the visualization every 30 seconds. With an empty catalog it shows clearly labeled sample nodes at 18, 55, and 90 so the scale is visible without inventing artists. Freshness uses the latest listen, or the artist's registration time before their first listen.
+The score maps to SVG node radius (12–48), a cyan-to-violet-to-pink heat color/glow, and a 4.5-to-1.1 second pulse. Each live node shows its score and artist name. LIVEPULSE™ sends server-sent events after artist, track, listen, and vote changes; 30-second polling remains as a reconnect fallback. With an empty catalog the page shows clearly labeled sample nodes at 18, 55, and 90, not invented artists. Freshness uses the latest listen, or the artist's registration time before their first listen.
 
 The free tier has unlimited listening. Starting with the 51st listen in a UTC day, the API can prompt the profile to vote for a local artist; voting is optional and never blocks listening. An artist is votable when its area matches `PULSE_USER_AREA`. This is a profile setting, not location verification.
 
@@ -46,6 +46,7 @@ The initial release has one configured local profile and one server-side API tok
 ## API
 
 - `GET /api/pulse` — artist catalog, metrics, and visual properties.
+- `GET /api/pulse/events` — public server-sent event stream; event payloads contain only change type and timestamp.
 - `POST /api/artists` — add an artist (`name`, `area`, optional `genre` and `bio`).
 - `POST /api/tracks` — upload audio (`artist_id`, `title`, `rights_confirmed`, `file`); supported formats: MP3, WAV, OGG, FLAC, M4A, AAC; 25 MB maximum.
 - `GET /api/tracks/{id}/audio` — stream an uploaded track.
@@ -54,6 +55,7 @@ The initial release has one configured local profile and one server-side API tok
 - `GET /api/profile` — free-tier status and badge progress.
 
 Mutating endpoints use `Authorization: Bearer <PULSE_API_TOKEN>`. Interactive API docs are available at `/docs`.
+LIVEPULSE event delivery uses an in-process queue for the current single-Uvicorn-worker MVP. The 30-second polling fallback recovers current state after reconnects; multi-worker deployments will need a shared event broker.
 
 ## Tests and development
 

@@ -47,8 +47,8 @@ flowchart TB
 
 | Layer | MVP implementation |
 |---|---|
-| Experience | FastAPI-served landing page; SVG nodes refresh every 30 seconds; authorized audio upload and stream controls |
-| API | FastAPI served by Uvicorn; bearer-token protected writes; public pulse summary; profile, badges, listens, votes |
+| Experience | FastAPI-served landing page; LIVEPULSE™ pushes live SVG refreshes; 30-second polling fallback; authorized audio controls |
+| API | FastAPI served by Uvicorn; public pulse summary and SSE events; bearer-token protected writes; profile, badges, listens, votes |
 | HeatScore | 0–100: `40 × min(listens_24h / 50, 1) + 30 × min(local_votes_24h / 10, 1) + 30 × max(1 - days_since_signal / 30, 0)` |
 | Node rendering | Radius `12 + 0.36 × score`; cyan → violet → pink color/glow; pulse period `4.5 - 0.034 × score` seconds |
 | Free tier | Unlimited listens; prompt to vote beginning with listen 51 per UTC day; voting stays optional |
@@ -57,6 +57,7 @@ flowchart TB
 | Analysis | JupyterLab reaches the API over the Compose network; Jupyter token is separate from the API bearer token |
 
 With no artists in the database, the landing page shows sample HeatScore nodes at 18, 55, and 90. Those are illustrative only; populated nodes always use the live API scores.
+LIVEPULSE uses an in-process event queue for the single-worker MVP. The 30-second polling fallback recovers state after reconnects; horizontal scaling needs a shared event broker.
 
 ## Runtime and agentic variables
 

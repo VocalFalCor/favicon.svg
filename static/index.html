@@ -26,7 +26,10 @@
       .brand { display: flex; align-items: center; gap: 12px; font-size: 1.15rem; font-weight: 800; letter-spacing: .12em; }
       .brand svg { width: 38px; height: 38px; }
       .status { color: var(--muted); font-size: .9rem; }
-      .status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #46e6aa; margin-right: 9px; box-shadow: 0 0 12px #46e6aa; }
+      .status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f0bf64; margin-right: 9px; box-shadow: 0 0 12px #f0bf64; }
+      .status[data-state="live"]::before { background: #46e6aa; box-shadow: 0 0 12px #46e6aa; }
+      .status[data-state="offline"]::before { background: #ff6d86; box-shadow: 0 0 12px #ff6d86; }
+      .live-activity { color: #b5c3e6; border-top: 1px solid var(--line); margin: 8px 8px 0; padding: 10px 0 2px; min-height: 34px; font-size: .8rem; }
       .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 42px; align-items: center; padding: 52px 0 64px; }
       .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .2em; font-weight: 700; font-size: .76rem; }
       h1 { font-size: clamp(2.8rem, 6vw, 5.2rem); line-height: .98; letter-spacing: -.06em; margin: 18px 0; }
@@ -100,7 +103,7 @@
         </svg>
         FALCOR / PULSE
       </div>
-      <div class="status" id="connection">Connecting to the pulse</div>
+      <div class="status" id="connection" data-state="connecting">LIVEPULSE™ · connecting</div>
     </header>
     <main>
       <section class="hero">
@@ -115,6 +118,7 @@
         <div class="visual">
           <svg id="pulse-nodes" viewBox="0 0 700 360" role="img" aria-label="Local music HeatScore visualization"></svg>
           <div class="visual-caption"><span id="pulse-label">LIVE COMMUNITY SIGNAL</span><span id="artist-count">waiting for artists</span></div>
+          <div class="live-activity" id="live-activity" role="status" aria-live="polite">Waiting for the first live event…</div>
         </div>
       </section>
 
@@ -171,7 +175,43 @@
       const svgNS = "http://www.w3.org/2000/svg";
       const tokenInput = document.getElementById("api-token");
       const notice = document.getElementById("notice");
+      const connection = document.getElementById("connection");
+      const liveActivity = document.getElementById("live-activity");
       const headers = () => ({ Authorization: `Bearer ${tokenInput.value.trim()}` });
+      let liveEvents;
+
+      function setConnection(state, label) {
+        connection.dataset.state = state;
+        connection.textContent = label;
+      }
+
+      function startLivePulse() {
+        liveEvents = new EventSource("/api/pulse/events");
+        liveEvents.addEventListener("open", () => setConnection("live", "LIVEPULSE™ · online"));
+        liveEvents.addEventListener("pulse", async (event) => {
+          try {
+            const update = JSON.parse(event.data);
+            const labels = {
+              artist_added: "Artist added",
+              track_uploaded: "Authorized track uploaded",
+              listen_recorded: "New listen recorded",
+              vote_cast: "Local vote recorded"
+            };
+            const description = labels[update.type] || "Pulse updated";
+            liveActivity.textContent = `${description} · ${new Date(update.at).toLocaleTimeString()}`;
+            await loadPulse();
+          } catch (error) {
+            showNotice(`Could not apply live update: ${error.message}`, true);
+          }
+        });
+        liveEvents.addEventListener("error", () => {
+          if (liveEvents.readyState === EventSource.CONNECTING) {
+            setConnection("reconnecting", "LIVEPULSE™ · reconnecting");
+          } else {
+            setConnection("offline", "LIVEPULSE™ · offline");
+          }
+        });
+      }
 
       function showNotice(message, error = false) {
         notice.textContent = message;
@@ -319,10 +359,14 @@
           if (!response.ok) throw new Error(data.detail || "Pulse is unavailable.");
           renderNodes(data.artists, data.preview_nodes);
           renderArtists(data.artists);
-          document.getElementById("connection").textContent = "Live pulse";
+          if (liveEvents && liveEvents.readyState === EventSource.OPEN) {
+            setConnection("live", "LIVEPULSE™ · online");
+          } else {
+            setConnection("api", "LIVEPULSE™ · polling fallback");
+          }
           await loadProfile();
         } catch (error) {
-          document.getElementById("connection").textContent = "Pulse offline";
+          setConnection("offline", "LIVEPULSE™ · API offline");
           showNotice(error.message, true);
         }
       }
@@ -400,6 +444,7 @@
           showNotice(error.message, true);
         }
       });
+      startLivePulse();
       loadPulse();
       window.setInterval(loadPulse, 30000);
     </script>

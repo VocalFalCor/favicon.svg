@@ -56,7 +56,7 @@
 
   <rect x="460" y="220" width="390" height="225" rx="18" class="card-current"/>
   <text x="486" y="260" class="card-title">FastAPI + Uvicorn</text>
-  <text x="486" y="298" class="mono">GET  /api/pulse</text>
+  <text x="486" y="298" class="mono">GET /api/pulse · SSE /api/pulse/events</text>
   <text x="486" y="327" class="mono">POST /api/artists, /api/tracks</text>
   <text x="486" y="356" class="mono">POST /listen, /vote</text>
   <text x="486" y="385" class="mono">GET  /api/profile</text>
