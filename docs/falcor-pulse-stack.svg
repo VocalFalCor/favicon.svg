@@ -17,6 +17,9 @@
     <marker id="futureArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
       <path d="M0 0 10 5 0 10z" fill="#b28cff"/>
     </marker>
+    <marker id="configuredArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0 10 5 0 10z" fill="#7886aa"/>
+    </marker>
     <style>
       text { font-family: "Segoe UI", Arial, sans-serif; fill: #eef1ff; }
       .title { font-size: 38px; font-weight: 800; letter-spacing: 1px; }
@@ -28,8 +31,10 @@
       .mono { font-family: Consolas, "Courier New", monospace; font-size: 14px; fill: #d7ddf0; }
       .card { fill: #11162a; stroke: #2a3352; stroke-width: 1.5; }
       .card-current { fill: #11162a; stroke: #35d6ff; stroke-width: 1.5; }
+      .card-configured { fill: #11162a; stroke: #7886aa; stroke-width: 1.5; stroke-dasharray: 8 7; }
       .card-future { fill: #11162a; stroke: #8d70c9; stroke-width: 1.5; stroke-dasharray: 8 7; }
       .connector { fill: none; stroke: #35d6ff; stroke-width: 2.5; marker-end: url(#arrow); }
+      .configured-connector { fill: none; stroke: #7886aa; stroke-width: 2.5; stroke-dasharray: 7 6; marker-end: url(#configuredArrow); }
       .future-connector { fill: none; stroke: #b28cff; stroke-width: 2.5; stroke-dasharray: 9 8; marker-end: url(#futureArrow); }
     </style>
   </defs>
@@ -37,14 +42,16 @@
   <rect width="1800" height="1480" fill="#080b18"/>
   <circle cx="1685" cy="85" r="95" fill="#351857" opacity=".22" filter="url(#softGlow)"/>
   <text x="60" y="72" class="title">FALCOR / PULSE</text>
-  <text x="60" y="108" class="subtitle">Proof-of-concept stack · current MVP and the proposed agentic boundary</text>
-  <rect x="1310" y="48" width="18" height="18" rx="4" fill="none" stroke="#35d6ff" stroke-width="2"/>
-  <text x="1340" y="63" class="small">wired in MVP</text>
-  <rect x="1490" y="48" width="18" height="18" rx="4" fill="none" stroke="#b28cff" stroke-width="2" stroke-dasharray="4 3"/>
-  <text x="1520" y="63" class="small">planned / separate</text>
+  <text x="60" y="108" class="subtitle">Live now: host Uvicorn · Docker / Jupyter configured but not running · n8n / Ollama separate</text>
+  <rect x="1195" y="48" width="18" height="18" rx="4" fill="none" stroke="#35d6ff" stroke-width="2"/>
+  <text x="1225" y="63" class="small">live / implemented</text>
+  <rect x="1400" y="48" width="18" height="18" rx="4" fill="none" stroke="#7886aa" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="1430" y="63" class="small">configured / inactive</text>
+  <rect x="1635" y="48" width="18" height="18" rx="4" fill="none" stroke="#b28cff" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="1665" y="63" class="small">future</text>
 
   <rect x="40" y="145" width="1720" height="570" rx="24" fill="#0c1020" stroke="#202945"/>
-  <text x="70" y="185" class="section">CURRENT PULSE MVP · DOCKER COMPOSE · LOCALHOST ONLY</text>
+  <text x="70" y="185" class="section">PULSE MVP · LIVE HOST API · DOCKER COMPOSE CONFIGURED</text>
 
   <rect x="70" y="220" width="310" height="225" rx="18" class="card-current"/>
   <text x="96" y="260" class="card-title">Listener / artist</text>
@@ -60,7 +67,7 @@
   <text x="486" y="327" class="mono">POST /api/artists, /api/tracks</text>
   <text x="486" y="356" class="mono">POST /listen, /vote</text>
   <text x="486" y="385" class="mono">GET  /api/profile</text>
-  <text x="486" y="418" class="small">Bearer-token protected writes</text>
+  <text x="486" y="418" class="small">Host Uvicorn · bearer-token protected writes</text>
 
   <rect x="930" y="220" width="380" height="225" rx="18" class="card-current"/>
   <text x="956" y="260" class="card-title">HeatScore engine</text>
@@ -84,17 +91,17 @@
   <path d="M850 332H920" class="connector"/>
   <path d="M1310 332H1380" class="connector"/>
 
-  <rect x="70" y="495" width="310" height="175" rx="18" class="card-current"/>
+  <rect x="70" y="495" width="310" height="175" rx="18" class="card-configured"/>
   <text x="96" y="535" class="card-title">JupyterLab</text>
-  <text x="96" y="572" class="body">Token-protected · localhost:8888</text>
+  <text x="96" y="572" class="body">Compose-configured · currently stopped</text>
   <text x="96" y="604" class="mono">PULSE_API_URL=http://api:8000</text>
-  <text x="96" y="642" class="small">Analysis workspace; same Compose network</text>
+  <text x="96" y="642" class="small">Token-protected · localhost:8888 when started</text>
 
   <rect x="460" y="495" width="390" height="175" rx="18" class="card-current"/>
-  <text x="486" y="535" class="card-title">Persistent data</text>
-  <text x="486" y="572" class="body">SQLite: artists (name / area / genre / bio)</text>
-  <text x="486" y="604" class="mono">/data/pulse.db</text>
-  <text x="486" y="636" class="body">Tracks · listens · votes; audio → /data/uploads</text>
+  <text x="486" y="535" class="card-title">Mode-specific data paths</text>
+  <text x="486" y="572" class="body">Host SQLite: messages.db · audio: uploads/</text>
+  <text x="486" y="604" class="mono">Compose DB: /data/pulse.db</text>
+  <text x="486" y="636" class="body">Compose audio: /data/uploads (pulse_data)</text>
 
   <rect x="930" y="495" width="380" height="175" rx="18" class="card-current"/>
   <text x="956" y="535" class="card-title">Free tier + badges</text>
@@ -109,7 +116,7 @@
   <text x="1416" y="636" class="body">Pulse: 4.5s → 1.1s as heat rises</text>
 
   <path d="M655 445V485" class="connector"/>
-  <path d="M380 580H430V415H460" class="connector"/>
+  <path d="M380 580H430V415H460" class="configured-connector"/>
   <path d="M850 430H880V475H1120V485" class="connector"/>
   <path d="M850 415H875V480H1550V485" class="connector"/>
   <path d="M1250 445V475H1550V485" class="connector"/>
@@ -165,5 +172,5 @@
   <rect x="850" y="115" width="370" height="27" rx="9" fill="#080b18"/>
   <text x="1035" y="134" class="small" text-anchor="middle" fill="#c6a9ff">future authenticated API bridge · not wired</text>
 
-  <text x="60" y="1460" class="small">FalCor Pulse POC · local-only configuration · use licensed / authorized audio only</text>
+  <text x="60" y="1460" class="small">Current artist data is in host messages.db; migrate it deliberately before switching to the separate Compose volume. Use authorized audio only.</text>
 </svg>

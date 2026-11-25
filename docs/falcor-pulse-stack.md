@@ -1,18 +1,18 @@
 # FalCor Pulse — proof-of-concept stack
 
-This diagram separates the runnable Pulse MVP from agentic components that exist in the repository but are not yet connected to Pulse.
+This diagram distinguishes the live host-run API from the configured-but-stopped Docker/Jupyter stack and the agentic components not yet connected to Pulse.
 
 ```mermaid
 flowchart TB
     listener["Listener / artist"]
     browser["Pulse landing page<br/>SVG nodes · track controls · badges"]
 
-    subgraph pulse["Pulse MVP · root Docker Compose · localhost only"]
+    subgraph pulse["Pulse API · live on host Uvicorn; Docker Compose configured"]
         api["FastAPI + Uvicorn<br/>GET /api/pulse · artists · tracks<br/>listens · votes · profile"]
         score["HeatScore engine<br/>40% recent listens · 30% local votes<br/>30% freshness"]
         viz["SVG node mapping<br/>radius · heat color/glow · pulse rate"]
-        sqlite[("SQLite<br/>artists · tracks · listens · votes")]
-        audio[("Authorized audio uploads<br/>25 MB maximum")]
+        sqlite[("SQLite<br/>Host: messages.db<br/>Compose: /data/pulse.db")]
+        audio[("Authorized uploads<br/>Host: uploads/<br/>Compose: /data/uploads")]
         badges["Free-tier rules<br/>unlimited listens · optional vote prompt<br/>Listener · Scout · Pulse Setter"]
         api <--> sqlite
         api <--> audio
@@ -21,7 +21,7 @@ flowchart TB
         score --> badges
     end
 
-    subgraph notebook["Analysis workspace · same Compose network"]
+    subgraph notebook["Docker Compose configuration · currently stopped"]
         jupyter["JupyterLab<br/>token protected · localhost:8888"]
     end
 
@@ -53,11 +53,17 @@ flowchart TB
 | Node rendering | Radius `12 + 0.36 × score`; cyan → violet → pink color/glow; pulse period `4.5 - 0.034 × score` seconds |
 | Free tier | Unlimited listens; prompt to vote beginning with listen 51 per UTC day; voting stays optional |
 | Badges | Listener (10 listens), Scout (5 local votes), Pulse Setter (first HeatScore contribution); first two thresholds are configurable |
-| Persistence | SQLite artist details (name, area, genre, bio) and uploaded authorized audio share the persistent `pulse_data` volume |
-| Analysis | JupyterLab reaches the API over the Compose network; Jupyter token is separate from the API bearer token |
+| Persistence | Current host run uses `messages.db` and `uploads/`; Compose uses a separate persistent `pulse_data` volume at `/data/pulse.db` and `/data/uploads` |
+| Analysis | JupyterLab is configured to reach the API over Compose networking, but is not running while Docker Engine is stopped |
 
 With no artists in the database, the landing page shows sample HeatScore nodes at 18, 55, and 90. Those are illustrative only; populated nodes always use the live API scores.
 LIVEPULSE uses an in-process event queue for the single-worker MVP. The 30-second polling fallback recovers state after reconnects; horizontal scaling needs a shared event broker.
+
+## Runtime comparison
+
+- **Live now:** Uvicorn on `127.0.0.1:8000`, serving the landing page and SSE feed; the first artist is stored in the host `messages.db`.
+- **Configured, not running:** root Docker Compose API and JupyterLab. Docker Engine is unavailable in the current session, so Compose's named volumes are not mounted.
+- **Important when switching:** Compose uses `/data/pulse.db` in `pulse_data`, which is separate from host `messages.db`. The first artist and any host uploads need a deliberate migration before using the containerized database.
 
 ## Runtime and agentic variables
 
@@ -85,7 +91,7 @@ The vote prompt threshold (`50`), upload maximum (`25 MiB`), allowed audio forma
 | Goal | Help listeners discover local artists and keep the pulse current | Define an agent task contract, such as summarizing notable local changes |
 | Inputs / context | Recent listens, area-matched votes, artist age/activity, track metadata | Add explicit context limits and source attribution |
 | Tools | Pulse HTTP API; Jupyter for local analysis | Give an agent a restricted API client; keep voting and publishing user-confirmed |
-| Memory | SQLite stores MVP records in a persistent volume | Define retention, event history, and per-user data boundaries |
+| Memory | SQLite stores MVP records; Docker persistence is configured, while the current host run uses `messages.db` | Define retention, event history, and per-user data boundaries |
 | Model | Ollama container is configured in the separate n8n stack; no model is selected or loaded for Pulse | Choose a model and resource limits, then connect it through an approved workflow |
 | Orchestration | n8n exists as a separate stack; no Pulse workflow or shared network is configured | Add a reviewed n8n workflow and authenticated connection to the Pulse API |
 | Credentials | Pulse API and Jupyter use distinct `.env` tokens | Use separate least-privilege credentials for any future agent; never put secrets in prompts or notebooks |
