@@ -5,18 +5,27 @@ This diagram distinguishes the live host-run API from the configured-but-stopped
 ```mermaid
 flowchart TB
     listener["Listener / artist"]
-    browser["Pulse landing page<br/>SVG nodes · HeatFlow player · badges"]
+    browser["Pulse landing page<br/>SVG nodes · HeatFlow · Top 5 contest"]
+    heatflow["HeatFlow<br/>browser-local playlist · popup player"]
+    top5["Top 5 forum<br/>ordered entries · positioned listens<br/>Spark co-occurrence summary"]
+    archive[("Published Top 5 JSON<br/>data/insights/top5/")]
 
     subgraph pulse["Pulse API · live on host Uvicorn; Docker Compose configured"]
-        api["FastAPI + Uvicorn<br/>GET /api/pulse · artists · tracks<br/>listens · votes · profile"]
+        api["FastAPI + Uvicorn<br/>pulse · artists · tracks<br/>listens · votes · profile"]
+        intake["Source intake<br/>allowlisted links · pending rights review<br/>operator review gates linked uploads"]
+        founders["Founder’s Circle<br/>opt-in RSVP · no email"]
         score["HeatScore engine<br/>40% recent listens · 30% local votes<br/>30% freshness"]
         gains["Per-artist Heat gain hits<br/>+1 when a listen/vote raises score<br/>otherwise hold; never reset"]
         viz["SVG node mapping<br/>radius · heat color/glow · pulse rate"]
-        sqlite[("SQLite<br/>artist scores + gain counters<br/>Host: messages.db · Compose: /data/pulse.db")]
+        sqlite[("SQLite<br/>artists · scores · source reviews · RSVPs<br/>Host: messages.db · Compose: /data/pulse.db")]
         audio[("Authorized uploads<br/>Host: uploads/<br/>Compose: /data/uploads")]
         badges["Free-tier rules<br/>unlimited listens · optional vote prompt<br/>Listener · Scout · Pulse Setter"]
         api <--> sqlite
         api <--> audio
+        api --> intake --> sqlite
+        intake --> founders --> sqlite
+        api --> top5 --> sqlite
+        top5 --> archive
         api --> score
         score --> viz
         score --> gains --> sqlite
@@ -38,6 +47,8 @@ flowchart TB
     listener --> browser
     browser -->|"GET / · GET /api/pulse"| api
     browser -->|"Bearer token for writes"| api
+    browser <--> heatflow
+    browser --> top5
     api --> browser
     jupyter -->|"PULSE_API_URL=http://api:8000"| api
     secrets -.->|"runtime configuration"| api
@@ -49,14 +60,18 @@ flowchart TB
 
 | Layer | MVP implementation |
 |---|---|
-| Experience | FastAPI-served landing page; LIVEPULSE™ pushes live SVG refreshes; 30-second polling fallback; authorized audio controls; browser-local HeatFlow queue and pop-out player |
-| API | FastAPI served by Uvicorn; public pulse summary and SSE events; bearer-token protected writes; profile, badges, listens, votes |
+| Experience | FastAPI-served landing page; LIVEPULSE™ pushes live SVG refreshes; 30-second polling fallback; authorized audio controls; browser-local HeatFlow playlist and popup; Top 5 contest forum |
+| API | FastAPI served by Uvicorn; public pulse summary and SSE events; bearer-token protected writes; profile, badges, listens, votes, source intake and operator rights review |
+| Source intake | HTTPS links from allowlisted media hosts only; no scraping, metadata fetch, audio download, or automatic outreach; each lead gets an optional in-app Founder’s Circle RSVP |
+| Rights gate | Operator records `cleared` or `rejected` plus a short basis; the API blocks linked uploads unless cleared. This records a decision but does not independently verify legal documents |
+| Top 5 contest | Submit five distinct Pulse-library tracks in order; an organizer publishes the selected winner. No public accounts or audience voting in this local POC |
+| Spark insight | Track-position listens are aggregated; position-3 play share is paired with artists in positions 1 and 2. Descriptive only, not causal or a quality rating |
 | HeatScore | 0–100: `40 × min(listens_24h / 50, 1) + 30 × min(local_votes_24h / 10, 1) + 30 × max(1 - days_since_signal / 30, 0)` |
 | Heat gain hits | Each listen/local vote compares pre/post score; add one only on an increase. Persistent per-artist count holds on flat/lower checks; refreshes/uploads do not count |
 | Node rendering | Radius `12 + 0.36 × score`; cyan → violet → pink color/glow; pulse period `4.5 - 0.034 × score` seconds |
 | Free tier | Unlimited listens; prompt to vote beginning with listen 51 per UTC day; voting stays optional |
 | Badges | Listener (10 listens), Scout (5 local votes), Pulse Setter (first HeatScore contribution); first two thresholds are configurable |
-| Persistence | Current host run uses `messages.db` and `uploads/`; Compose uses a separate persistent `pulse_data` volume at `/data/pulse.db` and `/data/uploads` |
+| Persistence | Current host run uses `messages.db` and `uploads/`; Compose uses a separate persistent `pulse_data` volume at `/data/pulse.db`, `/data/uploads`, and `/data/insights/top5`; HeatFlow stays in browser-local storage; host Top 5 snapshots go to git-ignored `data/insights/top5/` |
 | Analysis | JupyterLab is configured to reach the API over Compose networking, but is not running while Docker Engine is stopped |
 
 With no artists in the database, the landing page shows sample HeatScore nodes at 18, 55, and 90. Those are illustrative only; populated nodes always use the live API scores.
@@ -79,6 +94,7 @@ LIVEPULSE uses an in-process event queue for the single-worker MVP. The 30-secon
 | `PULSE_API_URL` | API URL visible inside the Jupyter container | `http://api:8000` |
 | `PULSE_DB_FILE` | SQLite database location | `/data/pulse.db` in Compose |
 | `PULSE_UPLOAD_DIR` | Authorized audio storage | `/data/uploads` in Compose |
+| `PULSE_TOP5_EXPORT_DIR` | Published Top 5 result snapshots | `/data/insights/top5` in Compose; `data/insights/top5/` on host |
 | `PULSE_PROFILE_NAME` | Label shown for the local profile | `Local Listener` |
 | `PULSE_PROFILE_ID` | Local profile identifier used for listen/vote totals | `local-listener` |
 | `PULSE_USER_AREA` | Area used to decide whether an artist is votable | `Local`; manually configured, not geolocation-verified |
@@ -91,13 +107,13 @@ The vote prompt threshold (`50`), upload maximum (`25 MiB`), allowed audio forma
 
 | Agentic concern | Current state | Next wiring step |
 |---|---|---|
-| Goal | Help listeners discover local artists and keep the pulse current | Define an agent task contract, such as summarizing notable local changes |
+| Goal | Help listeners discover local artists and find independent music through rights-safe source links | Use the source-intake task contract; do not treat public links as redistribution permission |
 | Inputs / context | Recent listens, area-matched votes, artist age/activity, track metadata | Add explicit context limits and source attribution |
-| Tools | Pulse HTTP API; Jupyter for local analysis | Give an agent a restricted API client; keep voting and publishing user-confirmed |
+| Tools | Pulse HTTP API; Jupyter for local analysis | Restrict intake/review operations to the operator; keep voting, rights review, and publishing user-confirmed |
 | Memory | SQLite stores MVP records; Docker persistence is configured, while the current host run uses `messages.db` | Define retention, event history, and per-user data boundaries |
 | Model | Ollama container is configured in the separate n8n stack; no model is selected or loaded for Pulse | Choose a model and resource limits, then connect it through an approved workflow |
 | Orchestration | n8n exists as a separate stack; no Pulse workflow or shared network is configured | Add a reviewed n8n workflow and authenticated connection to the Pulse API |
 | Credentials | Pulse API and Jupyter use distinct `.env` tokens | Use separate least-privilege credentials for any future agent; never put secrets in prompts or notebooks |
-| Guardrails | Licensed uploads are attested; 25 MiB cap; votes are optional and area-string matched | Add verified user accounts, authorization scopes, abuse controls, and auditable actions before public launch |
+| Guardrails | Uploads require rights confirmation; linked intake must be marked cleared; 25 MiB cap; no platform scraping/downloads; votes are optional and area-string matched | Add verified user accounts, authorization scopes, abuse controls, and auditable review actions before public launch |
 
 The current deployment is a single local profile and one shared API write token, not public multi-user authentication. The configured n8n/Ollama containers are separate and do not currently call the Pulse API.

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090b18">
+    <title>Founder’s Circle · Pulse</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #090b18;
+        color: #eef1ff;
+        --line: #2a3150;
+        --muted: #a4acc7;
+        --cyan: #35d6ff;
+        --violet: #b28cff;
+        --pink: #ff38a0;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 20% 5%, #25204b 0%, #090b18 60%); }
+      main { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0; }
+      .eyebrow { color: var(--cyan); font-size: .75rem; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; }
+      .card { border: 1px solid #554677; border-radius: 22px; background: linear-gradient(150deg, #17162d, #101528 62%, #101a2b); padding: clamp(22px, 5vw, 42px); box-shadow: 0 18px 60px #0008, 0 0 32px #b28cff18; }
+      h1 { margin: 10px 0; font-size: clamp(2rem, 7vw, 3.4rem); line-height: 1.02; background: linear-gradient(100deg, #dbfaff, #bba8ff 55%, #ff9fce); color: transparent; background-clip: text; }
+      p, li { color: #c1c9df; line-height: 1.6; }
+      .source { margin: 22px 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #0c1020; }
+      .source a { color: #9deeff; overflow-wrap: anywhere; }
+      .source strong { color: #f0e9ff; }
+      h2 { margin: 26px 0 8px; font-size: 1.15rem; }
+      ul { padding-left: 22px; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+      button { min-height: 44px; border: 0; border-radius: 10px; padding: 10px 18px; font: inherit; font-weight: 800; cursor: pointer; }
+      button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+      button.primary { color: #101222; background: linear-gradient(115deg, var(--cyan), #bd8cff 60%, var(--pink)); }
+      button.secondary { color: #e4e9fb; background: #252e4a; }
+      button:hover { filter: brightness(1.12); }
+      .status { min-height: 24px; margin-top: 18px; color: var(--muted); }
+      .fine { margin-top: 22px; color: #818ba9; font-size: .8rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <div class="eyebrow">FalCor / Pulse · independent community program</div>
+        <h1>Founder’s Circle</h1>
+        <p>Join the early community shaping how independent music moves through local Pulse regions.</p>
+        <div id="source" class="source" hidden></div>
+        <h2>Founding offerings</h2>
+        <ul id="offerings"></ul>
+        <div class="actions">
+          <button id="rsvp-yes" class="primary" type="button" disabled>RSVP yes</button>
+          <button id="rsvp-no" class="secondary" type="button" disabled>Not this time</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite">Loading your invitation…</p>
+        <p class="fine">This invitation is opt-in. RSVP does not grant audio or distribution rights, promise promotion, or guarantee placement. Pulse is independent and is not affiliated with YouTube, SoundCloud, or WorldStar. No email is collected on this RSVP page.</p>
+      </section>
+    </main>
+    <script>
+      const status = document.getElementById("status");
+      const inviteId = location.pathname.split("/").filter(Boolean).pop();
+      const sourceBox = document.getElementById("source");
+      const yesButton = document.getElementById("rsvp-yes");
+      const noButton = document.getElementById("rsvp-no");
+
+      function showStatus(message, error = false) {
+        status.textContent = message;
+        status.style.color = error ? "#ff9aae" : "";
+      }
+
+      async function loadInvite() {
+        try {
+          const response = await fetch(`/api/founders/${encodeURIComponent(inviteId)}`);
+          const invite = await response.json();
+          if (!response.ok) throw new Error(invite.detail || "This invitation is unavailable.");
+          const sourceTitle = invite.source.artist_name || invite.source.platform;
+          const sourceName = document.createElement("strong");
+          sourceName.textContent = `Source referral · ${sourceTitle}`;
+          const sourceBreak = document.createElement("br");
+          const sourceLink = document.createElement("a");
+          sourceLink.href = invite.source.url;
+          sourceLink.target = "_blank";
+          sourceLink.rel = "noopener noreferrer";
+          sourceLink.textContent = `${invite.source.platform} link`;
+          const review = document.createElement("p");
+          review.textContent = `Rights status: ${invite.source.rights_status.replace("_", " ")}. This is a lead only; no audio was copied.`;
+          sourceBox.replaceChildren(sourceName, sourceBreak, sourceLink, review);
+          sourceBox.hidden = false;
+          for (const offering of invite.offerings) {
+            const item = document.createElement("li");
+            item.textContent = offering;
+            document.getElementById("offerings").append(item);
+          }
+          yesButton.disabled = false;
+          noButton.disabled = false;
+          if (invite.response !== "pending") {
+            showStatus(`Your current RSVP is “${invite.response}”. You can change it below.`);
+          } else {
+            showStatus(invite.program_note);
+          }
+        } catch (error) {
+          showStatus(error.message, true);
+        }
+      }
+
+      async function respond(responseValue) {
+        try {
+          yesButton.disabled = true;
+          noButton.disabled = true;
+          const response = await fetch(`/api/founders/${encodeURIComponent(inviteId)}/rsvp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ response: responseValue })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "Could not save your RSVP.");
+          showStatus(result.response === "yes" ? "You’re on the RSVP list. Welcome to the circle." : "Your response was saved. Thanks for letting us know.");
+        } catch (error) {
+          showStatus(error.message, true);
+        } finally {
+          yesButton.disabled = false;
+          noButton.disabled = false;
+        }
+      }
+
+      yesButton.addEventListener("click", () => respond("yes"));
+      noButton.addEventListener("click", () => respond("no"));
+      loadInvite();
+    </script>
+  </body>
+</html>

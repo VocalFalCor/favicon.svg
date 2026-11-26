@@ -49,8 +49,9 @@
       .section-head p { margin: 7px 0 0; font-size: .9rem; }
       .token-box, .panel, .artist-card { border: 1px solid var(--line); background: var(--panel); border-radius: 16px; }
       .token-box { padding: 10px 12px; display: flex; gap: 8px; align-items: center; max-width: 390px; }
-      input, button { font: inherit; }
+      input, button, select { font: inherit; }
       input[type="password"], input[type="text"], input[type="file"], textarea { color: #e8ebfa; background: #0b1021; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; min-width: 0; }
+      select { color: #e8ebfa; background: #0b1021; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; min-width: 0; }
       textarea { font: inherit; min-height: 84px; resize: vertical; }
       input[type="password"] { width: 190px; }
       button { color: #07121d; background: var(--cyan); border: 0; border-radius: 9px; padding: 10px 14px; cursor: pointer; font-weight: 750; }
@@ -85,6 +86,31 @@
       .heatflow-item .heatflow-meta { color: var(--muted); font-size: .78rem; margin-left: auto; }
       .heatflow-empty { border: 1px dashed #514578; border-radius: 10px; padding: 16px; color: #bcb3d7; }
       .heatflow-note { margin: 10px 0 0; font-size: .78rem; }
+      .source-intake { margin: 0 0 24px; border-color: #31525f; background: linear-gradient(135deg, #121b2c, #11162a 65%, #1b1830); }
+      .source-intake h2 { color: #c8f6ff; }
+      .source-intake p { max-width: 820px; font-size: .88rem; }
+      .source-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, .55fr) auto; gap: 10px; align-items: end; }
+      .source-form label { display: grid; gap: 6px; }
+      .source-result { margin: 12px 0 0; }
+      .source-result a { color: #9deeff; overflow-wrap: anywhere; }
+      .top5 { margin: 0 0 24px; border-color: #514578; background: radial-gradient(ellipse at 100% 0%, #31245c 0%, var(--panel) 58%); }
+      .top5 h2 { color: #e8dfff; }
+      .top5-copy { max-width: 900px; }
+      .top5-form { margin: 16px 0; }
+      .top5-fields { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; }
+      .top5-fields label, .top5-track-selects label, .top5-organizer label { display: grid; gap: 6px; }
+      .top5-track-selects { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+      .top5-entries { display: grid; gap: 12px; margin-top: 18px; }
+      .top5-entry { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: #0c1020; }
+      .top5-entry h3 { margin: 0 0 4px; }
+      .top5-entry > p { margin: 4px 0 10px; font-size: .82rem; }
+      .top5-track { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding: 8px 0; font-size: .85rem; }
+      .top5-track button { flex: 0 0 auto; }
+      .top5-spark { color: #bda7ff !important; border: 1px solid #554677; border-radius: 9px; padding: 9px 11px; margin: 10px 0 0 !important; }
+      .top5-organizer { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }
+      .top5-organizer label { min-width: min(100%, 300px); }
+      .top5-status { min-height: 24px; margin: 10px 0 0 !important; }
+      .top5-empty { border: 1px dashed #514578; border-radius: 10px; padding: 16px; color: #bcb3d7; }
       .now-playing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 1.4fr); gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 12px 14px; margin-top: 14px; color: #d7ddf0; }
       .now-playing[hidden] { display: none; }
       .now-playing audio { width: 100%; }
@@ -109,6 +135,9 @@
         .heatflow-head { align-items: start; flex-direction: column; }
         .heatflow-tools { width: 100%; align-items: stretch; }
         .heatflow-tools input { width: 100%; }
+        .source-form { grid-template-columns: 1fr; }
+        .top5-fields, .top5-track-selects { grid-template-columns: 1fr; }
+        .top5-track { align-items: start; flex-direction: column; }
         .now-playing { grid-template-columns: 1fr; }
         .section-head { align-items: start; flex-direction: column; }
         .token-box { width: 100%; max-width: none; }
@@ -187,6 +216,59 @@
         <p id="heatflow-note" class="heatflow-note" role="status">Saved in this browser only. Erase removes from HeatFlow, not the library.</p>
       </section>
 
+      <section class="panel top5" aria-label="Top 5 Vibe of the Night contest">
+        <h2>Top 5: Vibe of the Night</h2>
+        <p id="top5-prompt" class="top5-copy">Build a five-track sequence that sets the vibe. Use tracks already in the authorized Pulse library.</p>
+        <p class="fine-print">Local POC: entries require the shared local API token; display names are unverified and there are no client accounts or public voting yet. An organizer selects and publishes the winner.</p>
+        <form id="top5-entry-form" class="top5-form">
+          <div class="top5-fields">
+            <label for="top5-display-name">Display name
+              <input id="top5-display-name" name="display_name" type="text" maxlength="80" placeholder="Public alias" required>
+            </label>
+            <label for="top5-title">Your Top 5 title
+              <input id="top5-title" name="title" type="text" maxlength="100" placeholder="e.g. Carter’s Top 5: Dead or Alive" required>
+            </label>
+          </div>
+          <div id="top5-track-selects" class="top5-track-selects">
+            <label for="top5-track-1">Track 1<select id="top5-track-1" name="track_ids" required disabled></select></label>
+            <label for="top5-track-2">Track 2<select id="top5-track-2" name="track_ids" required disabled></select></label>
+            <label for="top5-track-3">Track 3<select id="top5-track-3" name="track_ids" required disabled></select></label>
+            <label for="top5-track-4">Track 4<select id="top5-track-4" name="track_ids" required disabled></select></label>
+            <label for="top5-track-5">Track 5<select id="top5-track-5" name="track_ids" required disabled></select></label>
+          </div>
+          <button type="submit" disabled>Enter Top 5</button>
+        </form>
+        <div id="top5-entries" class="top5-entries" aria-live="polite">
+          <div class="top5-empty">No entries yet. Be the first to set tonight’s vibe.</div>
+        </div>
+        <div class="top5-organizer">
+          <label for="top5-winner">Organizer · choose a winner to post results
+            <select id="top5-winner"><option value="">No entries yet</option></select>
+          </label>
+          <button id="publish-top5" class="secondary" type="button">Publish results</button>
+        </div>
+        <p id="top5-status" class="top5-status" role="status"></p>
+        <p class="fine-print">“Spark” is a descriptive position-3 play share, paired with the artists in positions 1 and 2. It shows a playlist pattern, not a causal or quality rating. Published results are archived as JSON in <code>data/insights/top5/</code>.</p>
+      </section>
+
+      <section class="panel source-intake" aria-label="Independent music source intake">
+        <h2>Independent source intake</h2>
+        <p>Submit a public YouTube, SoundCloud, or WorldStar link you are authorized to refer for review. This POC records the link and artist name only—it does not scrape pages, fetch audio, or grant distribution rights. Each submission creates an opt-in Founder’s Circle RSVP link; no invitation email is sent automatically.</p>
+        <form id="source-form" class="source-form">
+          <label for="source-url">Official source link
+            <input id="source-url" name="url" type="url" maxlength="2048" placeholder="https://soundcloud.com/artist/track" required>
+          </label>
+          <label for="source-artist">Artist / creator name
+            <input id="source-artist" name="artist_name" type="text" maxlength="100" placeholder="Optional">
+          </label>
+          <button type="submit">Submit for rights review</button>
+        </form>
+        <p id="source-status" class="source-result" role="status"></p>
+        <p id="source-invite" class="source-result" hidden>
+          <a id="source-invite-link"></a>
+        </p>
+      </section>
+
       <section class="panel profile" aria-label="Free tier and badges">
         <h2 id="profile-title">Free listener tier</h2>
         <p id="profile-copy">Unlimited listens. Voting is optional; after 50 daily listens, you’ll see a local-scene voting prompt.</p>
@@ -228,10 +310,18 @@
       const nowPlaying = document.getElementById("now-playing");
       const nowPlayingTitle = document.getElementById("now-playing-title");
       const audioPlayer = document.getElementById("audio-player");
-      const heatFlowKey = "falcor.pulse.heatflow.v1";
       const headers = () => ({ Authorization: `Bearer ${tokenInput.value.trim()}` });
+      const heatFlowKey = "falcor.pulse.heatflow.v1";
+      const heatFlowNameInput = document.getElementById("heatflow-name");
+      const heatFlowList = document.getElementById("heatflow-list");
+      const heatFlowNote = document.getElementById("heatflow-note");
+      const top5EntriesElement = document.getElementById("top5-entries");
+      const top5StatusElement = document.getElementById("top5-status");
+      const top5WinnerSelect = document.getElementById("top5-winner");
+      let top5ContestStatus = "open";
       let liveEvents;
       let heatFlowPlayerWindow = null;
+      let heatFlowState = createHeatFlowState();
 
       function setConnection(state, label) {
         connection.dataset.state = state;
@@ -271,149 +361,117 @@
         notice.style.color = error ? "#ff8ba7" : "";
       }
 
-      function showHeatFlowNote(message, error = false) {
-        const note = document.getElementById("heatflow-note");
-        note.textContent = message;
-        note.style.color = error ? "#ff8ba7" : "";
-      }
-
-      function emptyHeatFlow() {
+      function createHeatFlowState() {
         return { version: 1, name: "HeatFlow", tracks: [], currentTrackId: null, shuffle: false };
       }
 
-      function parseHeatFlowState(raw) {
-        if (raw === null) return emptyHeatFlow();
-        let saved;
-        try {
-          saved = JSON.parse(raw);
-        } catch (error) {
-          throw new Error(`Saved HeatFlow playlist is invalid: ${error.message}`);
-        }
+      function readHeatFlowState() {
+        const saved = localStorage.getItem(heatFlowKey);
+        if (!saved) return createHeatFlowState();
+        const state = JSON.parse(saved);
         if (
-          !saved ||
-          saved.version !== 1 ||
-          typeof saved.name !== "string" ||
-          !Array.isArray(saved.tracks) ||
-          typeof saved.shuffle !== "boolean"
+          state.version !== 1 ||
+          typeof state.name !== "string" ||
+          !Array.isArray(state.tracks) ||
+          !state.tracks.every((track) =>
+            track &&
+            typeof track.track_id === "string" &&
+            typeof track.title === "string" &&
+            typeof track.artist_id === "string" &&
+            typeof track.artist_name === "string" &&
+            typeof track.area === "string" &&
+            typeof track.heat_score === "number" &&
+            Number.isFinite(track.heat_score) &&
+            typeof track.color === "string" &&
+            /^#[0-9a-f]{6}$/i.test(track.color)
+          )
         ) {
-          throw new Error("Saved HeatFlow playlist has an unsupported format.");
+          throw new Error("Saved HeatFlow data is invalid.");
         }
-        const tracks = saved.tracks.map((track) => {
-          if (
-            !track ||
-            ["track_id", "artist_id", "title", "artist_name", "area"].some(
-              (key) => typeof track[key] !== "string" || !track[key]
-            ) ||
-            typeof track.heat_score !== "number" ||
-            !Number.isFinite(track.heat_score) ||
-            typeof track.color !== "string" ||
-            !/^#[0-9a-f]{6}$/i.test(track.color)
-          ) {
-            throw new Error("Saved HeatFlow playlist contains an invalid track.");
-          }
-          return {
-            track_id: track.track_id,
-            artist_id: track.artist_id,
-            title: track.title,
-            artist_name: track.artist_name,
-            area: track.area,
-            heat_score: track.heat_score,
-            color: track.color
-          };
-        });
-        const currentTrackId =
-          typeof saved.currentTrackId === "string" &&
-          tracks.some((track) => track.track_id === saved.currentTrackId)
-            ? saved.currentTrackId
-            : tracks[0]?.track_id || null;
         return {
           version: 1,
-          name: saved.name.trim().slice(0, 60) || "HeatFlow",
-          tracks,
-          currentTrackId,
-          shuffle: saved.shuffle
+          name: state.name || "HeatFlow",
+          tracks: state.tracks,
+          currentTrackId: state.tracks.some((track) => track.track_id === state.currentTrackId)
+            ? state.currentTrackId
+            : state.tracks[0]?.track_id || null,
+          shuffle: Boolean(state.shuffle)
         };
       }
 
-      let heatFlowState;
-      try {
-        heatFlowState = parseHeatFlowState(localStorage.getItem(heatFlowKey));
-      } catch (error) {
-        heatFlowState = emptyHeatFlow();
-        showHeatFlowNote(`${error.message} This session started with an empty HeatFlow playlist.`, true);
+      function showHeatFlowNote(message, error = false) {
+        heatFlowNote.textContent = message;
+        heatFlowNote.style.color = error ? "#ff8ba7" : "";
       }
 
-      function syncHeatFlowPlayer(message = { type: "heatflow:sync" }) {
+      function syncHeatFlowPlayer() {
         if (!heatFlowPlayerWindow || heatFlowPlayerWindow.closed) return;
         heatFlowPlayerWindow.postMessage(
-          { ...message, token: tokenInput.value.trim() },
+          { type: "heatflow:init", token: tokenInput.value.trim() },
           location.origin
         );
       }
 
-      function saveHeatFlow() {
+      function saveHeatFlowState() {
         try {
           localStorage.setItem(heatFlowKey, JSON.stringify(heatFlowState));
+          renderHeatFlow();
           syncHeatFlowPlayer();
-          return true;
         } catch (error) {
-          showHeatFlowNote(`Could not save HeatFlow in this browser: ${error.message}`, true);
-          return false;
+          showHeatFlowNote(`Could not save HeatFlow: ${error.message}`, true);
         }
       }
 
       function renderHeatFlow() {
-        const nameInput = document.getElementById("heatflow-name");
-        const list = document.getElementById("heatflow-list");
-        if (document.activeElement !== nameInput) nameInput.value = heatFlowState.name;
-        list.replaceChildren();
+        if (document.activeElement !== heatFlowNameInput) {
+          heatFlowNameInput.value = heatFlowState.name;
+        }
+        heatFlowList.replaceChildren();
         if (!heatFlowState.tracks.length) {
           const empty = document.createElement("div");
           empty.className = "heatflow-empty";
           empty.textContent = "No tracks yet. Add one from the artist library below.";
-          list.append(empty);
+          heatFlowList.append(empty);
           return;
         }
+
         heatFlowState.tracks.forEach((track, index) => {
-          const item = document.createElement("div");
-          item.className = `heatflow-item${track.track_id === heatFlowState.currentTrackId ? " selected" : ""}`;
+          const row = document.createElement("div");
+          row.className = `heatflow-item${track.track_id === heatFlowState.currentTrackId ? " selected" : ""}`;
           const select = button(`${index + 1}. ${track.title}`, () => {
             heatFlowState.currentTrackId = track.track_id;
-            saveHeatFlow();
-            renderHeatFlow();
-          }, true);
-          const meta = document.createElement("span");
-          meta.className = "heatflow-meta";
-          meta.textContent = `${track.artist_name} · ${track.area}`;
+            saveHeatFlowState();
+          });
+          select.setAttribute("aria-pressed", String(track.track_id === heatFlowState.currentTrackId));
+          const details = document.createElement("span");
+          details.className = "heatflow-meta";
+          details.textContent = `${track.artist_name} · ${track.area}`;
           const erase = button("Erase", () => removeFromHeatFlow(track.track_id), true);
           erase.title = "Remove from HeatFlow only; keep the track in the library";
-          item.append(select, meta, erase);
-          list.append(item);
+          row.append(select, details, erase);
+          heatFlowList.append(row);
         });
       }
 
-      function addToHeatFlow(artist, track) {
-        let item = heatFlowState.tracks.find((entry) => entry.track_id === track.id);
-        let message;
-        if (!item) {
-          item = {
+      function addToHeatFlow(track, artist) {
+        const existing = heatFlowState.tracks.find((item) => item.track_id === track.id);
+        if (existing) {
+          heatFlowState.currentTrackId = existing.track_id;
+          showHeatFlowNote(`${track.title} is already in ${heatFlowState.name}; selected it.`);
+        } else {
+          heatFlowState.tracks.push({
             track_id: track.id,
-            artist_id: artist.id,
             title: track.title,
+            artist_id: artist.id,
             artist_name: artist.name,
             area: artist.area,
             heat_score: artist.heat_score,
             color: artist.color
-          };
-          heatFlowState.tracks.push(item);
-          message = `Added “${track.title}” to ${heatFlowState.name}.`;
-        } else {
-          message = `“${track.title}” is already in ${heatFlowState.name}.`;
+          });
+          heatFlowState.currentTrackId = track.id;
+          showHeatFlowNote(`Added ${track.title} to ${heatFlowState.name}.`);
         }
-        heatFlowState.currentTrackId = item.track_id;
-        const saved = saveHeatFlow();
-        renderHeatFlow();
-        if (saved) showHeatFlowNote(message);
+        saveHeatFlowState();
       }
 
       function removeFromHeatFlow(trackId) {
@@ -421,50 +479,60 @@
         if (index < 0) return;
         const [removed] = heatFlowState.tracks.splice(index, 1);
         if (heatFlowState.currentTrackId === trackId) {
-          heatFlowState.currentTrackId = heatFlowState.tracks[Math.min(index, heatFlowState.tracks.length - 1)]?.track_id || null;
+          heatFlowState.currentTrackId =
+            heatFlowState.tracks[Math.min(index, heatFlowState.tracks.length - 1)]?.track_id || null;
         }
-        const saved = saveHeatFlow();
-        renderHeatFlow();
-        if (saved) showHeatFlowNote(`Removed “${removed.title}” from HeatFlow. The library track was not deleted.`);
+        saveHeatFlowState();
+        showHeatFlowNote(`Removed ${removed.title} from HeatFlow. The library track was not deleted.`);
       }
 
       function openHeatFlowPlayer() {
-        if (!heatFlowState.tracks.length) {
-          showHeatFlowNote("Add a track to HeatFlow before opening the player.", true);
-          return;
-        }
         if (!heatFlowPlayerWindow || heatFlowPlayerWindow.closed) {
           heatFlowPlayerWindow = window.open(
             "/player",
-            "pulseHeatFlowPlayer",
-            "popup=yes,width=440,height=760,resizable=yes"
+            "pulse-heatflow-player",
+            "popup=yes,width=430,height=760,resizable=yes"
           );
         }
         if (!heatFlowPlayerWindow) {
-          showHeatFlowNote("The browser blocked the HeatFlow pop-out. Allow pop-ups for Pulse and try again.", true);
+          showHeatFlowNote("The player popup was blocked. Allow popups for this local Pulse site.", true);
           return;
         }
         heatFlowPlayerWindow.focus();
-        syncHeatFlowPlayer({ type: "heatflow:init" });
+        syncHeatFlowPlayer();
       }
 
-      window.addEventListener("message", (event) => {
-        if (event.origin !== location.origin || event.source !== heatFlowPlayerWindow || !event.data) return;
-        if (event.data.type === "heatflow:ready") {
-          syncHeatFlowPlayer({ type: "heatflow:init" });
-        } else if (event.data.type === "heatflow:pause-main") {
-          audioPlayer.pause();
-        }
-      });
+      try {
+        heatFlowState = readHeatFlowState();
+      } catch (error) {
+        showHeatFlowNote(`${error.message} HeatFlow is using a new empty playlist.`, true);
+      }
+      renderHeatFlow();
 
       window.addEventListener("storage", (event) => {
         if (event.key !== heatFlowKey) return;
         try {
-          heatFlowState = parseHeatFlowState(event.newValue);
+          heatFlowState = readHeatFlowState();
           renderHeatFlow();
-          showHeatFlowNote("HeatFlow updated in another window.");
+          showHeatFlowNote("HeatFlow updated from the player window.");
         } catch (error) {
           showHeatFlowNote(error.message, true);
+        }
+      });
+
+      window.addEventListener("message", (event) => {
+        if (event.origin !== location.origin || event.source !== heatFlowPlayerWindow) return;
+        if (event.data?.type === "heatflow:ready") {
+          syncHeatFlowPlayer();
+        } else if (event.data?.type === "heatflow:sync") {
+          try {
+            heatFlowState = readHeatFlowState();
+            renderHeatFlow();
+          } catch (error) {
+            showHeatFlowNote(error.message, true);
+          }
+        } else if (event.data?.type === "heatflow:pause-main") {
+          audioPlayer.pause();
         }
       });
 
@@ -621,7 +689,11 @@
                 showNotice(error.message, true);
               }
             }, true);
-            const addToHeatFlowButton = button("Add to HeatFlow", () => addToHeatFlow(artist, track), true);
+            const addToHeatFlowButton = button(
+              "Add to HeatFlow",
+              () => addToHeatFlow(track, artist),
+              true
+            );
             vote.disabled = !artist.can_vote;
             vote.title = artist.can_vote ? "Vote for this local artist" : "Voting is limited to your configured area";
             actions.append(listen, addToHeatFlowButton, vote);
@@ -632,6 +704,146 @@
         }
       }
 
+      function populateTop5TrackOptions(artists) {
+        const options = artists.flatMap((artist) =>
+          artist.tracks.map((track) => ({
+            id: track.id,
+            label: `${track.title} · ${artist.name}`
+          }))
+        );
+        document.querySelectorAll("#top5-track-selects select").forEach((select, index) => {
+          const selectedValue = select.value;
+          const placeholder = document.createElement("option");
+          placeholder.value = "";
+          placeholder.textContent = options.length
+            ? `Choose track ${index + 1}`
+            : "No authorized library tracks yet";
+          select.replaceChildren(placeholder);
+          for (const track of options) {
+            const option = document.createElement("option");
+            option.value = track.id;
+            option.textContent = track.label;
+            select.append(option);
+          }
+          if (options.some((track) => track.id === selectedValue)) {
+            select.value = selectedValue;
+          }
+          select.disabled = options.length === 0 || top5ContestStatus !== "open";
+        });
+        document.querySelector('#top5-entry-form button[type="submit"]').disabled =
+          options.length === 0 || top5ContestStatus !== "open";
+      }
+
+      function renderTop5(data) {
+        const contest = data.contest;
+        top5ContestStatus = contest.status;
+        top5StatusElement.style.color = "";
+        document.getElementById("top5-prompt").textContent = contest.prompt;
+        top5EntriesElement.replaceChildren();
+        top5WinnerSelect.replaceChildren();
+        if (!data.entries.length) {
+          const empty = document.createElement("div");
+          empty.className = "top5-empty";
+          empty.textContent = "No entries yet. Be the first to set tonight’s vibe.";
+          top5EntriesElement.append(empty);
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "No entries yet";
+          top5WinnerSelect.append(option);
+        }
+
+        for (const entry of data.entries) {
+          const card = document.createElement("article");
+          card.className = "top5-entry";
+          const heading = document.createElement("h3");
+          heading.textContent = entry.title;
+          const author = document.createElement("p");
+          author.textContent = `Curated by ${entry.display_name}`;
+          card.append(heading, author);
+          for (const track of entry.tracks) {
+            const row = document.createElement("div");
+            row.className = "top5-track";
+            const label = document.createElement("span");
+            label.textContent = `${track.position}. ${track.title} · ${track.artist_name} · ${track.plays} plays`;
+            const listen = button("Listen", () => listenTop5Track(entry.id, track));
+            row.append(label, listen);
+            card.append(row);
+          }
+          const spark = document.createElement("p");
+          spark.className = "top5-spark";
+          spark.textContent =
+            `Spark: ${entry.spark.artist_pair.join(" + ")} → ${entry.spark.third_track_artist} / ` +
+            `${entry.spark.third_track} · ${entry.spark.position_three_plays} position-3 plays ` +
+            `(${entry.spark.play_share_percent}% of this Top 5’s recorded plays)`;
+          card.append(spark);
+          top5EntriesElement.append(card);
+
+          const option = document.createElement("option");
+          option.value = entry.id;
+          option.textContent = `${entry.title} — ${entry.display_name}`;
+          top5WinnerSelect.append(option);
+        }
+
+        const entryForm = document.getElementById("top5-entry-form");
+        const hasTracks = Array.from(
+          document.querySelectorAll("#top5-track-selects select")
+        ).some((select) => select.options.length > 1);
+        entryForm.querySelectorAll("input, select, button").forEach((control) => {
+          control.disabled =
+            contest.status !== "open" ||
+            (!hasTracks && (control.tagName === "SELECT" || control.type === "submit"));
+        });
+        const published = contest.status === "published";
+        document.getElementById("publish-top5").disabled =
+          !data.entries.length || (published && Boolean(contest.winner_entry_id));
+        if (published && contest.winner) {
+          top5WinnerSelect.value = contest.winner.id;
+          top5StatusElement.textContent = `Results published: “${contest.winner.title}” by ${contest.winner.display_name}.`;
+        }
+      }
+
+      async function loadTop5() {
+        try {
+          const response = await fetch("/api/top5");
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || "Could not load the Top 5 contest.");
+          renderTop5(data);
+        } catch (error) {
+          top5StatusElement.textContent = error.message;
+          top5StatusElement.style.color = "#ff8ba7";
+        }
+      }
+
+      async function listenTop5Track(entryId, track) {
+        try {
+          const response = await fetch(
+            `/api/top5/entries/${encodeURIComponent(entryId)}/tracks/${track.position}/listen`,
+            { method: "POST", headers: headers() }
+          );
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "Could not record this Top 5 listen.");
+          nowPlayingTitle.textContent = `Now playing: ${track.title} · ${track.artist_name}`;
+          nowPlaying.hidden = false;
+          if (heatFlowPlayerWindow && !heatFlowPlayerWindow.closed) {
+            heatFlowPlayerWindow.postMessage({ type: "heatflow:pause" }, location.origin);
+          }
+          audioPlayer.src = `/api/tracks/${encodeURIComponent(track.track_id)}/audio`;
+          try {
+            await audioPlayer.play();
+          } catch (error) {
+            if (error.name !== "NotAllowedError") throw error;
+            showNotice("Playback is ready. Press Play in the audio controls to start.");
+          }
+          top5StatusElement.style.color = "";
+          top5StatusElement.textContent =
+            `Recorded position ${track.position} in ${track.title}; HeatScore updates through the listen signal.`;
+          await Promise.all([loadPulse(), loadTop5()]);
+        } catch (error) {
+          top5StatusElement.textContent = error.message;
+          top5StatusElement.style.color = "#ff8ba7";
+        }
+      }
+
       async function loadPulse() {
         try {
           const response = await fetch("/api/pulse");
@@ -639,6 +851,7 @@
           if (!response.ok) throw new Error(data.detail || "Pulse is unavailable.");
           renderNodes(data.artists, data.preview_nodes);
           renderArtists(data.artists);
+          populateTop5TrackOptions(data.artists);
           if (liveEvents && liveEvents.readyState === EventSource.OPEN) {
             setConnection("live", "LIVEPULSE™ · online");
           } else {
@@ -684,26 +897,121 @@
       }
 
       document.getElementById("refresh").addEventListener("click", loadPulse);
-      tokenInput.addEventListener("input", () => syncHeatFlowPlayer({ type: "heatflow:init" }));
-      tokenInput.addEventListener("change", () => {
-        loadProfile();
-        syncHeatFlowPlayer({ type: "heatflow:init" });
-      });
+      tokenInput.addEventListener("change", loadProfile);
+      tokenInput.addEventListener("input", syncHeatFlowPlayer);
+      document.getElementById("open-heatflow-player").addEventListener("click", openHeatFlowPlayer);
       document.getElementById("save-heatflow-name").addEventListener("click", () => {
-        const name = document.getElementById("heatflow-name").value.trim();
+        const name = heatFlowNameInput.value.trim();
         if (!name) {
-          showHeatFlowNote("Playlist name cannot be blank.", true);
+          showHeatFlowNote("Enter a playlist name before saving.", true);
           return;
         }
-        heatFlowState.name = name.slice(0, 60);
-        const saved = saveHeatFlow();
-        renderHeatFlow();
-        if (saved) showHeatFlowNote(`Saved playlist name: ${heatFlowState.name}.`);
+        heatFlowState.name = name;
+        saveHeatFlowState();
+        showHeatFlowNote(`Saved playlist name: ${name}.`);
       });
-      document.getElementById("open-heatflow-player").addEventListener("click", openHeatFlowPlayer);
+      document.getElementById("source-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const sourceForm = event.currentTarget;
+        const form = new FormData(sourceForm);
+        const sourceStatus = document.getElementById("source-status");
+        const invitePanel = document.getElementById("source-invite");
+        invitePanel.hidden = true;
+        sourceStatus.textContent = "";
+        sourceStatus.style.color = "";
+        try {
+          const response = await fetch("/api/source-intakes", {
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: form.get("url"),
+              artist_name: form.get("artist_name")
+            })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            const detail = Array.isArray(result.detail)
+              ? result.detail.map((item) => item.msg).join("; ")
+              : result.detail;
+            throw new Error(detail || "Could not submit this source link.");
+          }
+          const inviteUrl = new URL(result.founder_invite_path, location.origin);
+          if (inviteUrl.origin !== location.origin) throw new Error("The RSVP link was not a local Pulse link.");
+          const inviteLink = document.getElementById("source-invite-link");
+          inviteLink.href = inviteUrl.href;
+          inviteLink.textContent = `Open the Founder’s Circle RSVP for ${result.artist_name || result.platform} (${result.rights_status.replace("_", " ")}).`;
+          invitePanel.hidden = false;
+          sourceStatus.textContent = "Link saved for manual rights review. No audio was fetched or copied.";
+          sourceForm.reset();
+        } catch (error) {
+          sourceStatus.textContent = error.message;
+          sourceStatus.style.color = "#ff8ba7";
+        }
+      });
+      document.getElementById("top5-entry-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const entryForm = event.currentTarget;
+        const form = new FormData(entryForm);
+        const submitButton = entryForm.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        top5StatusElement.textContent = "";
+        top5StatusElement.style.color = "";
+        try {
+          const response = await fetch("/api/top5/entries", {
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
+            body: JSON.stringify({
+              display_name: form.get("display_name"),
+              title: form.get("title"),
+              track_ids: form.getAll("track_ids")
+            })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            const detail = Array.isArray(result.detail)
+              ? result.detail.map((item) => item.msg).join("; ")
+              : result.detail;
+            throw new Error(detail || "Could not enter the Top 5 contest.");
+          }
+          entryForm.reset();
+          await loadTop5();
+          top5StatusElement.textContent = `Entry posted: “${result.title}” by ${result.display_name}.`;
+        } catch (error) {
+          top5StatusElement.textContent = error.message;
+          top5StatusElement.style.color = "#ff8ba7";
+        } finally {
+          submitButton.disabled = false;
+        }
+      });
+      document.getElementById("publish-top5").addEventListener("click", async () => {
+        const winnerEntryId = top5WinnerSelect.value;
+        if (!winnerEntryId) {
+          top5StatusElement.textContent = "Choose an entry before publishing results.";
+          top5StatusElement.style.color = "#ff8ba7";
+          return;
+        }
+        top5StatusElement.textContent = "";
+        top5StatusElement.style.color = "";
+        try {
+          const response = await fetch("/api/top5/publish", {
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
+            body: JSON.stringify({ winner_entry_id: winnerEntryId })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "Could not publish Top 5 results.");
+          renderTop5(result);
+          top5StatusElement.textContent =
+            `Results published and archived: “${result.contest.winner.title}” by ${result.contest.winner.display_name}.`;
+        } catch (error) {
+          top5StatusElement.textContent = error.message;
+          top5StatusElement.style.color = "#ff8ba7";
+        }
+      });
       document.getElementById("artist-form").addEventListener("submit", async (event) => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
+        const artistForm = event.currentTarget;
+        const form = new FormData(artistForm);
         try {
           const response = await fetch("/api/artists", {
             method: "POST",
@@ -717,7 +1025,7 @@
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.detail || "Could not add artist.");
-          event.currentTarget.reset();
+          artistForm.reset();
           document.querySelector('#track-form [name="artist_id"]').value = result.id;
           showNotice(`Artist added. Their ID is ${result.id}; use it when uploading a track.`);
           await loadPulse();
@@ -727,22 +1035,23 @@
       });
       document.getElementById("track-form").addEventListener("submit", async (event) => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
+        const trackForm = event.currentTarget;
+        const form = new FormData(trackForm);
         form.set("rights_confirmed", form.get("rights_confirmed") === "on" ? "true" : "false");
         try {
           const response = await fetch("/api/tracks", { method: "POST", headers: headers(), body: form });
           const result = await response.json();
           if (!response.ok) throw new Error(result.detail || "Could not upload track.");
-          event.currentTarget.reset();
+          trackForm.reset();
           showNotice(`“${result.title}” is now in the library.`);
           await loadPulse();
         } catch (error) {
           showNotice(error.message, true);
         }
       });
-      renderHeatFlow();
       startLivePulse();
       loadPulse();
+      loadTop5();
       window.setInterval(loadPulse, 30000);
     </script>
   </body>

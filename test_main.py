@@ -83,6 +83,11 @@ def test_landing_page_and_empty_pulse(client):
     assert page.status_code == 200
     assert "local pulse" in page.text
     assert "Add to HeatFlow" in page.text
+    assert "Top 5: Vibe of the Night" in page.text
+    player = client.get("/player")
+    assert player.status_code == 200
+    assert "HeatFlow media player" in player.text
+    assert "Add to HeatFlow" in page.text
     assert client.get("/favicon.svg").headers["content-type"] == "image/svg+xml"
     pulse = client.get("/api/pulse").json()
     assert pulse["artists"] == []
@@ -169,13 +174,33 @@ def test_init_db_adds_optional_artist_fields_to_existing_database(tmp_path, monk
         connection.execute(
             "CREATE TABLE artists (id TEXT PRIMARY KEY, name TEXT NOT NULL, area TEXT NOT NULL, created_at TEXT NOT NULL)"
         )
+        connection.execute(
+            """
+            CREATE TABLE tracks (
+                id TEXT PRIMARY KEY,
+                artist_id TEXT NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                storage_name TEXT NOT NULL UNIQUE,
+                media_type TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
     monkeypatch.setattr(main, "DB_FILE", str(database))
 
     main.init_db()
 
     with sqlite3.connect(database) as connection:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(artists)")}
-    assert {"genre", "bio", "heat_gain_hits", "heat_gain_last_result"}.issubset(columns)
+    assert {
+        "genre",
+        "bio",
+        "heat_gain_hits",
+        "heat_gain_last_result",
+    }.issubset(columns)
+    with sqlite3.connect(database) as connection:
+        track_columns = {row[1] for row in connection.execute("PRAGMA table_info(tracks)")}
+    assert "source_intake_id" in track_columns
 
 
 def test_upload_requires_rights_and_supported_format(client, monkeypatch):
@@ -295,3 +320,170 @@ def test_heat_gain_counter_increments_only_when_score_rises(client, monkeypatch)
     )
     assert snapshot["heat_gain_hits"] == 51
     assert snapshot["heat_gain_last_result"] == "gain"
+
+
+def test_source_intake_creates_opt_in_founder_rsvp_without_fetching_media(client, monkeypatch):
+    monkeypatch.setenv("PULSE_API_TOKEN", "test-token")
+    headers = {"Authorization": "Bearer test-token"}
+    payload = {"url": "https://youtu.be/independent-track", "artist_name": "Underground Artist"}
+
+    assert client.post("/api/source-intakes", json=payload).status_code == 401
+    invalid = client.post(
+        "/api/source-intakes",
+        headers=headers,
+        json={"url": "http://example.com/track"},
+    )
+    assert invalid.status_code == 422
+    unapproved_host = client.post(
+        "/api/source-intakes",
+        headers=headers,
+        json={"url": "https://example.com/track"},
+    )
+    assert unapproved_host.status_code == 422
+
+    created = client.post("/api/source-intakes", headers=headers, json=payload)
+    assert created.status_code == 201
+    intake = created.json()
+    source_id = intake["id"]
+    assert intake["platform"] == "YouTube"
+    assert intake["rights_status"] == "pending_review"
+    assert intake["founder_invite_path"].startswith("/founders/")
+
+    invite_id = intake["founder_invite_path"].rsplit("/", 1)[-1]
+    invite = client.get(f"/api/founders/{invite_id}")
+    assert invite.status_code == 200
+    assert invite.json()["response"] == "pending"
+    assert invite.json()["source"]["artist_name"] == "Underground Artist"
+    assert invite.json()["source"]["rights_status"] == "pending_review"
+    assert any("HeatFlow" in offering for offering in invite.json()["offerings"])
+    assert client.get(f"/founders/{invite_id}").status_code == 200
+    assert client.get("/founders/missing-invite").status_code == 404
+
+    upload_form = {
+        "artist_id": "artist-id-placeholder",
+        "title": "Submitted Track",
+        "rights_confirmed": "true",
+        "source_intake_id": source_id,
+    }
+    pending_upload = client.post(
+        "/api/tracks",
+        headers=headers,
+        data=upload_form,
+        files={"file": ("track.mp3", b"audio", "audio/mpeg")},
+    )
+    assert pending_upload.status_code == 403
+
+    reviewed = client.post(
+        f"/api/source-intakes/{source_id}/rights-review",
+        headers=headers,
+        json={"decision": "cleared", "basis": "Artist provided distribution permission"},
+    )
+    assert reviewed.status_code == 200
+    assert reviewed.json()["rights_status"] == "cleared"
+    assert client.get(
+        f"/api/source-intakes/{source_id}",
+        headers=headers,
+    ).json()["rights_basis"] == "Artist provided distribution permission"
+    assert client.post(
+        f"/api/source-intakes/{source_id}/rights-review",
+        headers=headers,
+        json={"decision": "approved", "basis": "No"},
+    ).status_code == 422
+
+    artist = client.post(
+        "/api/artists",
+        headers=headers,
+        json={"name": "Underground Artist", "area": "Local"},
+    ).json()
+    upload_form["artist_id"] = artist["id"]
+    uploaded = client.post(
+        "/api/tracks",
+        headers=headers,
+        data=upload_form,
+        files={"file": ("track.mp3", b"audio", "audio/mpeg")},
+    )
+    assert uploaded.status_code == 201
+    assert uploaded.json()["source_intake_id"] == source_id
+
+    rsvp = client.post(f"/api/founders/{invite_id}/rsvp", json={"response": "yes"})
+    assert rsvp.status_code == 200
+    assert rsvp.json()["response"] == "yes"
+    assert client.get(f"/api/founders/{invite_id}").json()["response"] == "yes"
+
+
+def test_top5_entries_track_spark_listens_and_archive_published_results(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("PULSE_API_TOKEN", "test-token")
+    monkeypatch.setattr(main, "TOP5_EXPORT_DIR", tmp_path / "top5-archive")
+    headers = {"Authorization": "Bearer test-token"}
+    assert client.get("/api/top5").json()["contest"]["status"] == "open"
+
+    track_ids = []
+    for index in range(1, 6):
+        artist = client.post(
+            "/api/artists",
+            headers=headers,
+            json={"name": f"Artist {index}", "area": "Local"},
+        ).json()
+        track = client.post(
+            "/api/tracks",
+            headers=headers,
+            data={
+                "artist_id": artist["id"],
+                "title": f"Track {index}",
+                "rights_confirmed": "true",
+            },
+            files={"file": (f"track-{index}.mp3", b"sample audio", "audio/mpeg")},
+        )
+        assert track.status_code == 201
+        track_ids.append(track.json()["id"])
+
+    payload = {
+        "display_name": "Carter",
+        "title": "Carter’s Top 5: Dead or Alive",
+        "track_ids": track_ids,
+    }
+    assert client.post("/api/top5/entries", json=payload).status_code == 401
+    duplicate_tracks = {**payload, "track_ids": [track_ids[0]] * 5}
+    assert client.post(
+        "/api/top5/entries",
+        headers=headers,
+        json=duplicate_tracks,
+    ).status_code == 422
+
+    created = client.post("/api/top5/entries", headers=headers, json=payload)
+    assert created.status_code == 201
+    entry = created.json()
+    assert [track["position"] for track in entry["tracks"]] == [1, 2, 3, 4, 5]
+    entry_id = entry["id"]
+
+    for position in (3, 3, 1):
+        listened = client.post(
+            f"/api/top5/entries/{entry_id}/tracks/{position}/listen",
+            headers=headers,
+        )
+        assert listened.status_code == 200
+        assert listened.json()["top5_position"] == position
+    assert client.post(
+        f"/api/top5/entries/{entry_id}/tracks/6/listen",
+        headers=headers,
+    ).status_code == 422
+
+    contest = client.get("/api/top5").json()
+    spark = contest["entries"][0]["spark"]
+    assert spark["artist_pair"] == ["Artist 1", "Artist 2"]
+    assert spark["third_track"] == "Track 3"
+    assert spark["position_three_plays"] == 2
+    assert spark["total_top5_plays"] == 3
+    assert spark["play_share_percent"] == 66.7
+    assert "not evidence" in contest["spark_definition"]
+
+    published = client.post(
+        "/api/top5/publish",
+        headers=headers,
+        json={"winner_entry_id": entry_id},
+    )
+    assert published.status_code == 200
+    assert published.json()["contest"]["winner"]["id"] == entry_id
+    archive = tmp_path / "top5-archive" / "vibe-of-the-night.json"
+    assert json.loads(archive.read_text(encoding="utf-8"))["contest"]["status"] == "published"
+    assert client.post("/api/top5/entries", headers=headers, json=payload).status_code == 409

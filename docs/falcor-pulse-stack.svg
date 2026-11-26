@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1480" role="img" aria-labelledby="title description">
   <title id="title">FalCor Pulse proof-of-concept stack</title>
-  <desc id="description">Current Pulse MVP architecture, HeatFlow player, runtime variables, HeatScore formula, and future agentic integration boundary.</desc>
+  <desc id="description">Current Pulse MVP architecture, HeatFlow, link-only music source intake, rights-review gate, runtime variables, and future agentic integration boundary.</desc>
   <defs>
     <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#35d6ff"/>
@@ -58,16 +58,16 @@
   <text x="96" y="297" class="body">Pulse landing page</text>
   <text x="96" y="326" class="body">• live SVG HeatScore nodes</text>
   <text x="96" y="354" class="body">• authorized track upload / play</text>
-  <text x="96" y="382" class="body">• votes, badges, HeatFlow pop-out</text>
-  <text x="96" y="417" class="small">Token stays in page memory</text>
+  <text x="96" y="382" class="body">• HeatFlow · Top 5 · source / RSVP</text>
+  <text x="96" y="417" class="small">Token stays in page memory; popup transfer is in-memory</text>
 
   <rect x="460" y="220" width="390" height="225" rx="18" class="card-current"/>
   <text x="486" y="260" class="card-title">FastAPI + Uvicorn</text>
   <text x="486" y="298" class="mono">GET /api/pulse · SSE /api/pulse/events</text>
   <text x="486" y="327" class="mono">POST /api/artists, /api/tracks</text>
   <text x="486" y="356" class="mono">POST /listen, /vote</text>
-  <text x="486" y="385" class="mono">GET  /api/profile</text>
-  <text x="486" y="418" class="small">Host Uvicorn · bearer-token protected writes</text>
+  <text x="486" y="385" class="mono">POST /source-intakes · /top5 entries</text>
+  <text x="486" y="418" class="small">Rights review / publish · bearer-token protected writes</text>
 
   <rect x="930" y="220" width="380" height="225" rx="18" class="card-current"/>
   <text x="956" y="260" class="card-title">HeatScore engine</text>
@@ -100,9 +100,9 @@
 
   <rect x="460" y="495" width="390" height="175" rx="18" class="card-current"/>
   <text x="486" y="535" class="card-title">Mode-specific data paths</text>
-  <text x="486" y="572" class="body">SQLite: listens · votes · per-artist gain hits</text>
+  <text x="486" y="572" class="body">SQLite: scores · Top 5 · source reviews · RSVPs</text>
   <text x="486" y="604" class="mono">Host: messages.db · uploads/</text>
-  <text x="486" y="636" class="body">Compose: /data/pulse.db · /data/uploads</text>
+  <text x="486" y="636" class="body">Top 5 snapshots: host data/insights · Compose /data/insights</text>
 
   <rect x="930" y="495" width="380" height="175" rx="18" class="card-current"/>
   <text x="956" y="535" class="card-title">Free tier + badges</text>
@@ -145,21 +145,21 @@
   <text x="1236" y="901" class="body">Upload cap: 25 MiB · six audio formats</text>
   <text x="1236" y="932" class="body">Listen / vote windows: 24 hours · freshness: 30 days</text>
   <text x="1236" y="963" class="body">Vote: one artist / profile / UTC day</text>
-  <text x="1236" y="994" class="body">Area match is a setting, not location verification</text>
-  <text x="1236" y="1030" class="small">Public multi-user auth is not in this MVP</text>
+  <text x="1236" y="994" class="body">Linked uploads require an operator-cleared source</text>
+  <text x="1236" y="1030" class="small">Area is a setting; public multi-user auth is not included</text>
 
   <rect x="40" y="1130" width="1720" height="300" rx="24" fill="#0c1020" stroke="#8d70c9" stroke-dasharray="9 8"/>
   <text x="70" y="1170" class="section" fill="#c6a9ff">AGENTIC PATH · PARTLY CONFIGURED, NOT CONNECTED TO PULSE</text>
 
   <rect x="70" y="1200" width="430" height="180" rx="18" class="card-future"/>
   <text x="96" y="1240" class="card-title">Objective / context</text>
-  <text x="96" y="1277" class="body">Discover local artists; summarize scene changes</text>
-  <text x="96" y="1308" class="body">Signals: listens · votes · freshness · area</text>
-  <text x="96" y="1342" class="small">Add task contract, context limits, source attribution</text>
+  <text x="96" y="1277" class="body">Discover artists via rights-safe source links</text>
+  <text x="96" y="1308" class="body">No scraping or audio download; summarize changes</text>
+  <text x="96" y="1342" class="small">Task contract defines attribution and human review</text>
 
   <rect x="550" y="1200" width="430" height="180" rx="18" class="card-future"/>
   <text x="576" y="1240" class="card-title">Tools / memory / policy</text>
-  <text x="576" y="1277" class="body">Tool candidate: restricted Pulse API client</text>
+  <text x="576" y="1277" class="body">Tool: Pulse API; operator controls rights review</text>
   <text x="576" y="1308" class="body">Memory candidate: SQLite event history</text>
   <text x="576" y="1342" class="small">Keep votes/publishing user-confirmed; audit actions</text>
 

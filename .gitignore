@@ -11,6 +11,7 @@ __pycache__/
 *.db-shm
 *.db-wal
 uploads/
+data/insights/top5/
 .pytest_cache/
 dist/
 build/

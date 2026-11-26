@@ -8,6 +8,7 @@ services:
       PULSE_API_TOKEN: ${PULSE_API_TOKEN:?Set PULSE_API_TOKEN in .env}
       PULSE_DB_FILE: /data/pulse.db
       PULSE_UPLOAD_DIR: /data/uploads
+      PULSE_TOP5_EXPORT_DIR: /data/insights/top5
       PULSE_PROFILE_NAME: ${PULSE_PROFILE_NAME:-Local Listener}
       PULSE_PROFILE_ID: ${PULSE_PROFILE_ID:-local-listener}
       PULSE_USER_AREA: ${PULSE_USER_AREA:-Local}

@@ -7,6 +7,7 @@ import uuid
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -19,9 +20,13 @@ from pulse.heat import heat_score, heat_visuals
 ROOT = Path(__file__).parent
 DB_FILE = os.getenv("PULSE_DB_FILE", str(ROOT / "messages.db"))
 UPLOAD_DIR = Path(os.getenv("PULSE_UPLOAD_DIR", str(ROOT / "uploads")))
+TOP5_EXPORT_DIR = Path(
+    os.getenv("PULSE_TOP5_EXPORT_DIR", str(ROOT / "data" / "insights" / "top5"))
+)
 STATIC_DIR = ROOT / "static"
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 MAX_DAILY_LISTENS_BEFORE_VOTE_PROMPT = 50
+TOP5_CONTEST_ID = "vibe-of-the-night"
 ALLOWED_AUDIO_TYPES = {
     ".aac": "audio/aac",
     ".flac": "audio/flac",
@@ -29,6 +34,20 @@ ALLOWED_AUDIO_TYPES = {
     ".mp3": "audio/mpeg",
     ".ogg": "audio/ogg",
     ".wav": "audio/wav",
+}
+SOURCE_PLATFORMS = {
+    "youtube.com": "YouTube",
+    "www.youtube.com": "YouTube",
+    "m.youtube.com": "YouTube",
+    "music.youtube.com": "YouTube",
+    "youtu.be": "YouTube",
+    "soundcloud.com": "SoundCloud",
+    "www.soundcloud.com": "SoundCloud",
+    "m.soundcloud.com": "SoundCloud",
+    "worldstar.com": "WorldStar",
+    "www.worldstar.com": "WorldStar",
+    "worldstarhiphop.com": "WorldStar",
+    "www.worldstarhiphop.com": "WorldStar",
 }
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -61,6 +80,97 @@ class ArtistCreate(BaseModel):
         return value.strip()
 
 
+class SourceIntakeCreate(BaseModel):
+    url: str = Field(min_length=8, max_length=2048)
+    artist_name: str = Field(default="", max_length=100)
+
+    @field_validator("url")
+    @classmethod
+    def validate_source_url(cls, value: str) -> str:
+        value = value.strip()
+        try:
+            parsed = urlsplit(value)
+            host = (parsed.hostname or "").lower().rstrip(".")
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Enter a valid public source URL") from error
+        if (
+            parsed.scheme != "https"
+            or host not in SOURCE_PLATFORMS
+            or parsed.username is not None
+            or parsed.password is not None
+            or port not in (None, 443)
+        ):
+            raise ValueError("Use an HTTPS link from YouTube, SoundCloud, or WorldStar")
+        return value
+
+    @field_validator("artist_name")
+    @classmethod
+    def strip_artist_name(cls, value: str) -> str:
+        return value.strip()
+
+
+class RightsReview(BaseModel):
+    decision: str
+    basis: str = Field(min_length=8, max_length=500)
+
+    @field_validator("decision")
+    @classmethod
+    def validate_decision(cls, value: str) -> str:
+        decision = value.strip().lower()
+        if decision not in {"cleared", "rejected"}:
+            raise ValueError("Rights review decision must be cleared or rejected")
+        return decision
+
+    @field_validator("basis")
+    @classmethod
+    def strip_basis(cls, value: str) -> str:
+        basis = value.strip()
+        if len(basis) < 8:
+            raise ValueError("Provide a brief rights-review basis")
+        return basis
+
+
+class FounderRsvp(BaseModel):
+    response: str
+
+    @field_validator("response")
+    @classmethod
+    def validate_response(cls, value: str) -> str:
+        response = value.strip().lower()
+        if response not in {"yes", "no"}:
+            raise ValueError("RSVP response must be yes or no")
+        return response
+
+
+class Top5EntryCreate(BaseModel):
+    display_name: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=100)
+    track_ids: list[str] = Field(min_length=5, max_length=5)
+
+    @field_validator("display_name", "title")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("This field cannot be blank")
+        return value
+
+    @field_validator("track_ids")
+    @classmethod
+    def validate_track_ids(cls, values: list[str]) -> list[str]:
+        track_ids = [value.strip() for value in values]
+        if any(not track_id for track_id in track_ids):
+            raise ValueError("Choose five tracks")
+        if len(set(track_ids)) != 5:
+            raise ValueError("Choose five different tracks")
+        return track_ids
+
+
+class Top5Publish(BaseModel):
+    winner_entry_id: str = Field(min_length=1)
+
+
 def connect_db() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_FILE, timeout=10)
     connection.row_factory = sqlite3.Row
@@ -90,6 +200,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS tracks (
                 id TEXT PRIMARY KEY,
                 artist_id TEXT NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
+                source_intake_id TEXT REFERENCES source_intakes(id),
                 title TEXT NOT NULL,
                 storage_name TEXT NOT NULL UNIQUE,
                 media_type TEXT NOT NULL,
@@ -110,10 +221,79 @@ def init_db() -> None:
                 voted_at TEXT NOT NULL,
                 UNIQUE (artist_id, profile_id, vote_day)
             );
+            CREATE TABLE IF NOT EXISTS source_intakes (
+                id TEXT PRIMARY KEY,
+                platform TEXT NOT NULL,
+                source_url TEXT NOT NULL,
+                artist_name TEXT NOT NULL DEFAULT '',
+                rights_status TEXT NOT NULL DEFAULT 'pending_review'
+                    CHECK (rights_status IN ('pending_review', 'cleared', 'rejected')),
+                rights_basis TEXT NOT NULL DEFAULT '',
+                rights_reviewed_at TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS founder_invites (
+                id TEXT PRIMARY KEY,
+                source_intake_id TEXT NOT NULL REFERENCES source_intakes(id) ON DELETE CASCADE,
+                response TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (response IN ('pending', 'yes', 'no')),
+                created_at TEXT NOT NULL,
+                responded_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS top5_contests (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'open'
+                    CHECK (status IN ('open', 'published')),
+                winner_entry_id TEXT,
+                created_at TEXT NOT NULL,
+                published_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS top5_entries (
+                id TEXT PRIMARY KEY,
+                contest_id TEXT NOT NULL REFERENCES top5_contests(id) ON DELETE CASCADE,
+                display_name TEXT NOT NULL,
+                title TEXT NOT NULL,
+                profile_id TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS top5_entry_tracks (
+                entry_id TEXT NOT NULL REFERENCES top5_entries(id) ON DELETE CASCADE,
+                position INTEGER NOT NULL CHECK (position BETWEEN 1 AND 5),
+                track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+                PRIMARY KEY (entry_id, position),
+                UNIQUE (entry_id, track_id)
+            );
+            CREATE TABLE IF NOT EXISTS top5_track_events (
+                id TEXT PRIMARY KEY,
+                entry_id TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+                profile_id TEXT NOT NULL,
+                played_at TEXT NOT NULL,
+                FOREIGN KEY (entry_id, position)
+                    REFERENCES top5_entry_tracks(entry_id, position) ON DELETE CASCADE
+            );
             CREATE INDEX IF NOT EXISTS listens_played_at_idx ON listens(played_at);
             CREATE INDEX IF NOT EXISTS listens_track_id_idx ON listens(track_id);
             CREATE INDEX IF NOT EXISTS votes_voted_at_idx ON votes(voted_at);
+            CREATE INDEX IF NOT EXISTS source_intakes_created_at_idx ON source_intakes(created_at);
+            CREATE INDEX IF NOT EXISTS top5_track_events_entry_idx
+                ON top5_track_events(entry_id, position);
             """
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO top5_contests (id, title, prompt, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                TOP5_CONTEST_ID,
+                "Top 5: Vibe of the Night",
+                "Build a five-track sequence that sets the vibe. Use tracks already in the authorized Pulse library.",
+                timestamp(utc_now()),
+            ),
         )
         artist_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(artists)").fetchall()
@@ -129,6 +309,13 @@ def init_db() -> None:
         if "heat_gain_last_result" not in artist_columns:
             connection.execute(
                 "ALTER TABLE artists ADD COLUMN heat_gain_last_result TEXT NOT NULL DEFAULT 'waiting'"
+            )
+        track_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(tracks)").fetchall()
+        }
+        if "source_intake_id" not in track_columns:
+            connection.execute(
+                "ALTER TABLE tracks ADD COLUMN source_intake_id TEXT REFERENCES source_intakes(id)"
             )
         connection.commit()
 
@@ -221,6 +408,18 @@ def landing_page() -> FileResponse:
 @app.get("/player", response_class=FileResponse)
 def heatflow_player() -> FileResponse:
     return FileResponse(STATIC_DIR / "player.html", media_type="text/html")
+
+
+@app.get("/founders/{invite_id}", response_class=FileResponse)
+def founder_invite_page(invite_id: str) -> FileResponse:
+    with closing(connect_db()) as connection:
+        invite = connection.execute(
+            "SELECT 1 FROM founder_invites WHERE id = ?",
+            (invite_id,),
+        ).fetchone()
+    if invite is None:
+        raise HTTPException(status_code=404, detail="Founder’s Circle invite not found")
+    return FileResponse(STATIC_DIR / "founders.html", media_type="text/html")
 
 
 @app.get("/favicon.svg", include_in_schema=False)
@@ -412,12 +611,29 @@ def upload_track(
     title: str = Form(..., min_length=1, max_length=160),
     rights_confirmed: bool = Form(...),
     file: UploadFile = File(...),
+    source_intake_id: str | None = Form(None),
 ) -> dict:
     if not rights_confirmed:
         raise HTTPException(status_code=400, detail="Confirm you have rights to distribute this recording")
     title = title.strip()
     if not title:
         raise HTTPException(status_code=422, detail="Track title cannot be blank")
+    source_intake_id = source_intake_id.strip() if source_intake_id else None
+    source_intake = None
+    if source_intake_id:
+        with closing(connect_db()) as connection:
+            source_intake = connection.execute(
+                "SELECT id, artist_name, rights_status FROM source_intakes WHERE id = ?",
+                (source_intake_id,),
+            ).fetchone()
+        if source_intake is None:
+            raise HTTPException(status_code=404, detail="Source intake not found")
+        if source_intake["rights_status"] != "cleared":
+            raise HTTPException(
+                status_code=403,
+                detail="Source intake must pass manual rights review before upload",
+            )
+
     extension = Path(file.filename or "").suffix.lower()
     media_type = ALLOWED_AUDIO_TYPES.get(extension)
     if media_type is None:
@@ -429,31 +645,73 @@ def upload_track(
         raise HTTPException(status_code=400, detail="The uploaded audio file is empty")
 
     with closing(connect_db()) as connection:
-        artist = connection.execute("SELECT id FROM artists WHERE id = ?", (artist_id,)).fetchone()
+        artist = connection.execute(
+            "SELECT id, name FROM artists WHERE id = ?",
+            (artist_id,),
+        ).fetchone()
     if artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
+    if (
+        source_intake
+        and source_intake["artist_name"]
+        and source_intake["artist_name"].casefold() != artist["name"].casefold()
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Selected artist must match the source intake artist name",
+        )
 
     track_id = str(uuid.uuid4())
     storage_name = f"{track_id}{extension}"
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     destination = UPLOAD_DIR / storage_name
-    destination.write_bytes(contents)
     created_at = timestamp(utc_now())
     try:
         with closing(connect_db()) as connection:
             with connection:
+                connection.execute("BEGIN IMMEDIATE")
+                if source_intake_id:
+                    reviewed_source = connection.execute(
+                        "SELECT rights_status FROM source_intakes WHERE id = ?",
+                        (source_intake_id,),
+                    ).fetchone()
+                    if reviewed_source is None:
+                        raise HTTPException(status_code=404, detail="Source intake not found")
+                    if reviewed_source["rights_status"] != "cleared":
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Source intake must pass manual rights review before upload",
+                        )
+                destination.write_bytes(contents)
                 connection.execute(
                     """
-                    INSERT INTO tracks (id, artist_id, title, storage_name, media_type, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO tracks (
+                        id, artist_id, source_intake_id, title, storage_name, media_type, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (track_id, artist_id, title, storage_name, media_type, created_at),
+                    (
+                        track_id,
+                        artist_id,
+                        source_intake_id,
+                        title,
+                        storage_name,
+                        media_type,
+                        created_at,
+                    ),
                 )
-    except sqlite3.Error:
-        destination.unlink()
+    except (sqlite3.Error, HTTPException, OSError):
+        if destination.exists():
+            destination.unlink()
         raise
     publish_pulse_event("track_uploaded")
-    return {"id": track_id, "artist_id": artist_id, "title": title, "created_at": created_at}
+    return {
+        "id": track_id,
+        "artist_id": artist_id,
+        "source_intake_id": source_intake_id,
+        "title": title,
+        "created_at": created_at,
+    }
 
 
 @app.get("/api/tracks/{track_id}/audio")
@@ -473,6 +731,253 @@ def get_track_audio(track_id: str) -> FileResponse:
 
 @app.post("/api/tracks/{track_id}/listen", dependencies=[Depends(require_api_token)])
 def record_listen(track_id: str) -> dict:
+    return _record_listen(track_id)
+
+
+@app.post(
+    "/api/top5/entries/{entry_id}/tracks/{position}/listen",
+    dependencies=[Depends(require_api_token)],
+)
+def record_top5_listen(entry_id: str, position: int) -> dict:
+    if position < 1 or position > 5:
+        raise HTTPException(status_code=422, detail="Top 5 track position must be from 1 to 5")
+    with closing(connect_db()) as connection:
+        entry_track = connection.execute(
+            """
+            SELECT tet.track_id FROM top5_entry_tracks tet
+            JOIN top5_entries te ON te.id = tet.entry_id
+            WHERE te.id = ? AND tet.position = ?
+            """,
+            (entry_id, position),
+        ).fetchone()
+    if entry_track is None:
+        raise HTTPException(status_code=404, detail="Top 5 track position not found")
+    return _record_listen(entry_track["track_id"], entry_id, position)
+
+
+def get_top5_payload() -> dict:
+    with closing(connect_db()) as connection:
+        contest = connection.execute(
+            "SELECT * FROM top5_contests WHERE id = ?",
+            (TOP5_CONTEST_ID,),
+        ).fetchone()
+        if contest is None:
+            raise HTTPException(status_code=404, detail="Top 5 contest not found")
+        entry_rows = connection.execute(
+            """
+            SELECT id, display_name, title, created_at
+            FROM top5_entries
+            WHERE contest_id = ?
+            ORDER BY created_at DESC, id
+            """,
+            (TOP5_CONTEST_ID,),
+        ).fetchall()
+        entries = []
+        for entry in entry_rows:
+            track_rows = connection.execute(
+                """
+                SELECT tet.position, t.id AS track_id, t.title AS track_title,
+                       a.name AS artist_name, a.area,
+                       COUNT(tte.id) AS plays
+                FROM top5_entry_tracks tet
+                JOIN tracks t ON t.id = tet.track_id
+                JOIN artists a ON a.id = t.artist_id
+                LEFT JOIN top5_track_events tte
+                    ON tte.entry_id = tet.entry_id
+                    AND tte.position = tet.position
+                WHERE tet.entry_id = ?
+                GROUP BY tet.position, t.id, t.title, a.name, a.area
+                ORDER BY tet.position
+                """,
+                (entry["id"],),
+            ).fetchall()
+            tracks = [
+                {
+                    "position": track["position"],
+                    "track_id": track["track_id"],
+                    "title": track["track_title"],
+                    "artist_name": track["artist_name"],
+                    "area": track["area"],
+                    "plays": track["plays"],
+                }
+                for track in track_rows
+            ]
+            total_plays = sum(track["plays"] for track in tracks)
+            third_track = next(track for track in tracks if track["position"] == 3)
+            first_track = next(track for track in tracks if track["position"] == 1)
+            second_track = next(track for track in tracks if track["position"] == 2)
+            spark = {
+                "artist_pair": [first_track["artist_name"], second_track["artist_name"]],
+                "third_track": third_track["title"],
+                "third_track_artist": third_track["artist_name"],
+                "position_three_plays": third_track["plays"],
+                "total_top5_plays": total_plays,
+                "play_share_percent": round(
+                    third_track["plays"] / total_plays * 100,
+                    1,
+                )
+                if total_plays
+                else 0,
+            }
+            entries.append(
+                {
+                    "id": entry["id"],
+                    "display_name": entry["display_name"],
+                    "title": entry["title"],
+                    "created_at": entry["created_at"],
+                    "tracks": tracks,
+                    "spark": spark,
+                }
+            )
+        winner = next(
+            (entry for entry in entries if entry["id"] == contest["winner_entry_id"]),
+            None,
+        )
+    return {
+        "contest": {
+            "id": contest["id"],
+            "title": contest["title"],
+            "prompt": contest["prompt"],
+            "status": contest["status"],
+            "winner_entry_id": contest["winner_entry_id"],
+            "published_at": contest["published_at"],
+            "winner": winner,
+        },
+        "entries": entries,
+        "spark_definition": (
+            "Descriptive position-3 play share, grouped with the artists in positions 1 and 2; "
+            "it is not evidence that those artists caused the engagement."
+        ),
+    }
+
+
+def export_top5_results(payload: dict) -> None:
+    try:
+        TOP5_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        target = TOP5_EXPORT_DIR / f"{payload['contest']['id']}.json"
+        temporary = TOP5_EXPORT_DIR / f".{payload['contest']['id']}-{uuid.uuid4().hex}.tmp"
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        temporary.replace(target)
+    except OSError as error:
+        raise HTTPException(
+            status_code=500,
+            detail="Results were published, but the Top 5 archive could not be written",
+        ) from error
+
+
+@app.get("/api/top5")
+def get_top5_contest() -> dict:
+    return get_top5_payload()
+
+
+@app.post(
+    "/api/top5/entries",
+    status_code=201,
+    dependencies=[Depends(require_api_token)],
+)
+def create_top5_entry(payload: Top5EntryCreate) -> dict:
+    entry_id = str(uuid.uuid4())
+    created_at = timestamp(utc_now())
+    with closing(connect_db()) as connection:
+        with connection:
+            connection.execute("BEGIN IMMEDIATE")
+            contest = connection.execute(
+                "SELECT status FROM top5_contests WHERE id = ?",
+                (TOP5_CONTEST_ID,),
+            ).fetchone()
+            if contest is None:
+                raise HTTPException(status_code=404, detail="Top 5 contest not found")
+            if contest["status"] != "open":
+                raise HTTPException(status_code=409, detail="This Top 5 contest is closed")
+            placeholders = ",".join("?" for _ in payload.track_ids)
+            tracks = connection.execute(
+                f"SELECT id FROM tracks WHERE id IN ({placeholders})",
+                payload.track_ids,
+            ).fetchall()
+            if len(tracks) != 5:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Choose five different tracks from the authorized Pulse library",
+                )
+            connection.execute(
+                """
+                INSERT INTO top5_entries
+                    (id, contest_id, display_name, title, profile_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    entry_id,
+                    TOP5_CONTEST_ID,
+                    payload.display_name,
+                    payload.title,
+                    profile_id(),
+                    created_at,
+                ),
+            )
+            connection.executemany(
+                """
+                INSERT INTO top5_entry_tracks (entry_id, position, track_id)
+                VALUES (?, ?, ?)
+                """,
+                [
+                    (entry_id, position, track_id)
+                    for position, track_id in enumerate(payload.track_ids, start=1)
+                ],
+            )
+    return next(
+        entry for entry in get_top5_payload()["entries"] if entry["id"] == entry_id
+    )
+
+
+@app.post(
+    "/api/top5/publish",
+    dependencies=[Depends(require_api_token)],
+)
+def publish_top5_results(payload: Top5Publish) -> dict:
+    published_at = timestamp(utc_now())
+    with closing(connect_db()) as connection:
+        with connection:
+            connection.execute("BEGIN IMMEDIATE")
+            contest = connection.execute(
+                "SELECT status, winner_entry_id FROM top5_contests WHERE id = ?",
+                (TOP5_CONTEST_ID,),
+            ).fetchone()
+            if contest is None:
+                raise HTTPException(status_code=404, detail="Top 5 contest not found")
+            winner = connection.execute(
+                "SELECT id FROM top5_entries WHERE id = ? AND contest_id = ?",
+                (payload.winner_entry_id, TOP5_CONTEST_ID),
+            ).fetchone()
+            if winner is None:
+                raise HTTPException(status_code=404, detail="Top 5 entry not found")
+            if contest["status"] == "published":
+                if contest["winner_entry_id"] != payload.winner_entry_id:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Published results cannot be changed",
+                    )
+            else:
+                connection.execute(
+                    """
+                    UPDATE top5_contests
+                    SET status = 'published', winner_entry_id = ?, published_at = ?
+                    WHERE id = ?
+                    """,
+                    (payload.winner_entry_id, published_at, TOP5_CONTEST_ID),
+                )
+    result = get_top5_payload()
+    export_top5_results(result)
+    return result
+
+
+def _record_listen(
+    track_id: str,
+    top5_entry_id: str | None = None,
+    top5_position: int | None = None,
+) -> dict:
     now = utc_now()
     day = now.date().isoformat()
     with closing(connect_db()) as connection:
@@ -488,11 +993,38 @@ def record_listen(track_id: str) -> dict:
             ).fetchone()
             if track is None:
                 raise HTTPException(status_code=404, detail="Track not found")
+            if top5_entry_id is not None and top5_position is not None:
+                entry_track = connection.execute(
+                    """
+                    SELECT 1 FROM top5_entry_tracks
+                    WHERE entry_id = ? AND position = ? AND track_id = ?
+                    """,
+                    (top5_entry_id, top5_position, track_id),
+                ).fetchone()
+                if entry_track is None:
+                    raise HTTPException(status_code=404, detail="Top 5 track position not found")
             score_before = artist_heat_metrics(connection, track, now)[2]
+            played_at = timestamp(now)
             connection.execute(
                 "INSERT INTO listens (id, track_id, profile_id, played_at) VALUES (?, ?, ?, ?)",
-                (str(uuid.uuid4()), track_id, profile_id(), timestamp(now)),
+                (str(uuid.uuid4()), track_id, profile_id(), played_at),
             )
+            if top5_entry_id is not None and top5_position is not None:
+                connection.execute(
+                    """
+                    INSERT INTO top5_track_events
+                        (id, entry_id, position, track_id, profile_id, played_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(uuid.uuid4()),
+                        top5_entry_id,
+                        top5_position,
+                        track_id,
+                        profile_id(),
+                        played_at,
+                    ),
+                )
             heat_gain_hit, heat_gain_hits = record_heat_check(
                 connection, track, score_before, now
             )
@@ -509,7 +1041,7 @@ def record_listen(track_id: str) -> dict:
                 (profile_id(), day, profile_area()),
             ).fetchone() is not None
     publish_pulse_event("listen_recorded")
-    return {
+    result = {
         "track_id": track_id,
         "daily_listens": listens_today,
         "free_tier": "unlimited",
@@ -518,6 +1050,10 @@ def record_listen(track_id: str) -> dict:
         "heat_gain_hit": heat_gain_hit,
         "heat_gain_hits": heat_gain_hits,
     }
+    if top5_entry_id is not None and top5_position is not None:
+        result["top5_entry_id"] = top5_entry_id
+        result["top5_position"] = top5_position
+    return result
 
 
 @app.post("/api/artists/{artist_id}/vote", dependencies=[Depends(require_api_token)])
@@ -558,6 +1094,147 @@ def vote_for_artist(artist_id: str) -> dict:
         "heat_gain_hit": heat_gain_hit,
         "heat_gain_hits": heat_gain_hits,
     }
+
+
+@app.post("/api/source-intakes", status_code=201, dependencies=[Depends(require_api_token)])
+def create_source_intake(payload: SourceIntakeCreate) -> dict:
+    host = urlsplit(payload.url).hostname
+    if host is None:
+        raise HTTPException(status_code=422, detail="Enter a valid public source URL")
+    platform = SOURCE_PLATFORMS.get(host.lower().rstrip("."))
+    if platform is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Use an HTTPS link from YouTube, SoundCloud, or WorldStar",
+        )
+    source_id = str(uuid.uuid4())
+    invite_id = str(uuid.uuid4())
+    created_at = timestamp(utc_now())
+    with closing(connect_db()) as connection:
+        with connection:
+            connection.execute(
+                """
+                INSERT INTO source_intakes (id, platform, source_url, artist_name, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (source_id, platform, payload.url, payload.artist_name, created_at),
+            )
+            connection.execute(
+                """
+                INSERT INTO founder_invites (id, source_intake_id, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (invite_id, source_id, created_at),
+            )
+    return {
+        "id": source_id,
+        "platform": platform,
+        "source_url": payload.url,
+        "artist_name": payload.artist_name,
+        "rights_status": "pending_review",
+        "created_at": created_at,
+        "founder_invite_path": f"/founders/{invite_id}",
+    }
+
+
+@app.get(
+    "/api/source-intakes/{source_id}",
+    dependencies=[Depends(require_api_token)],
+)
+def get_source_intake(source_id: str) -> dict:
+    with closing(connect_db()) as connection:
+        source = connection.execute(
+            """
+            SELECT id, platform, source_url, artist_name, rights_status,
+                   rights_basis, rights_reviewed_at, created_at
+            FROM source_intakes
+            WHERE id = ?
+            """,
+            (source_id,),
+        ).fetchone()
+    if source is None:
+        raise HTTPException(status_code=404, detail="Source intake not found")
+    return dict(source)
+
+
+@app.post(
+    "/api/source-intakes/{source_id}/rights-review",
+    dependencies=[Depends(require_api_token)],
+)
+def review_source_intake(source_id: str, payload: RightsReview) -> dict:
+    reviewed_at = timestamp(utc_now())
+    with closing(connect_db()) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_intakes
+                SET rights_status = ?, rights_basis = ?, rights_reviewed_at = ?
+                WHERE id = ?
+                """,
+                (payload.decision, payload.basis, reviewed_at, source_id),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Source intake not found")
+    return {
+        "id": source_id,
+        "rights_status": payload.decision,
+        "rights_basis": payload.basis,
+        "rights_reviewed_at": reviewed_at,
+    }
+
+
+@app.get("/api/founders/{invite_id}")
+def get_founder_invite(invite_id: str) -> dict:
+    with closing(connect_db()) as connection:
+        invite = connection.execute(
+            """
+            SELECT fi.id, fi.response, fi.created_at, fi.responded_at,
+                   si.platform, si.source_url, si.artist_name, si.rights_status
+            FROM founder_invites fi
+            JOIN source_intakes si ON si.id = fi.source_intake_id
+            WHERE fi.id = ?
+            """,
+            (invite_id,),
+        ).fetchone()
+    if invite is None:
+        raise HTTPException(status_code=404, detail="Founder’s Circle invite not found")
+    return {
+        "invite_id": invite["id"],
+        "response": invite["response"],
+        "created_at": invite["created_at"],
+        "responded_at": invite["responded_at"],
+        "source": {
+            "platform": invite["platform"],
+            "url": invite["source_url"],
+            "artist_name": invite["artist_name"],
+            "rights_status": invite["rights_status"],
+        },
+        "offerings": [
+            "Founder’s Circle community recognition",
+            "Early previews of local HeatFlow playlists and HeatScore insights",
+            "Artist-feature nominations and community feedback sessions",
+            "A voice in shaping the local Pulse experience",
+        ],
+        "program_note": "Independent community program; RSVP does not grant audio or distribution rights and does not guarantee promotion.",
+    }
+
+
+@app.post("/api/founders/{invite_id}/rsvp")
+def respond_to_founder_invite(invite_id: str, payload: FounderRsvp) -> dict:
+    responded_at = timestamp(utc_now())
+    with closing(connect_db()) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                UPDATE founder_invites
+                SET response = ?, responded_at = ?
+                WHERE id = ?
+                """,
+                (payload.response, responded_at, invite_id),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Founder’s Circle invite not found")
+    return {"invite_id": invite_id, "response": payload.response, "responded_at": responded_at}
 
 
 @app.get("/api/profile", dependencies=[Depends(require_api_token)])
