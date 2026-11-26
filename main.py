@@ -218,6 +218,11 @@ def landing_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
 
 
+@app.get("/player", response_class=FileResponse)
+def heatflow_player() -> FileResponse:
+    return FileResponse(STATIC_DIR / "player.html", media_type="text/html")
+
+
 @app.get("/favicon.svg", include_in_schema=False)
 def favicon() -> FileResponse:
     return FileResponse(ROOT / "favicon.svg", media_type="image/svg+xml")

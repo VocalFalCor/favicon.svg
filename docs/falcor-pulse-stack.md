@@ -5,7 +5,7 @@ This diagram distinguishes the live host-run API from the configured-but-stopped
 ```mermaid
 flowchart TB
     listener["Listener / artist"]
-    browser["Pulse landing page<br/>SVG nodes · track controls · badges"]
+    browser["Pulse landing page<br/>SVG nodes · HeatFlow player · badges"]
 
     subgraph pulse["Pulse API · live on host Uvicorn; Docker Compose configured"]
         api["FastAPI + Uvicorn<br/>GET /api/pulse · artists · tracks<br/>listens · votes · profile"]
@@ -49,7 +49,7 @@ flowchart TB
 
 | Layer | MVP implementation |
 |---|---|
-| Experience | FastAPI-served landing page; LIVEPULSE™ pushes live SVG refreshes; 30-second polling fallback; authorized audio controls |
+| Experience | FastAPI-served landing page; LIVEPULSE™ pushes live SVG refreshes; 30-second polling fallback; authorized audio controls; browser-local HeatFlow queue and pop-out player |
 | API | FastAPI served by Uvicorn; public pulse summary and SSE events; bearer-token protected writes; profile, badges, listens, votes |
 | HeatScore | 0–100: `40 × min(listens_24h / 50, 1) + 30 × min(local_votes_24h / 10, 1) + 30 × max(1 - days_since_signal / 30, 0)` |
 | Heat gain hits | Each listen/local vote compares pre/post score; add one only on an increase. Persistent per-artist count holds on flat/lower checks; refreshes/uploads do not count |

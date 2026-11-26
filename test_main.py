@@ -82,10 +82,20 @@ def test_landing_page_and_empty_pulse(client):
     page = client.get("/")
     assert page.status_code == 200
     assert "local pulse" in page.text
+    assert "Add to HeatFlow" in page.text
     assert client.get("/favicon.svg").headers["content-type"] == "image/svg+xml"
     pulse = client.get("/api/pulse").json()
     assert pulse["artists"] == []
     assert [node["heat_score"] for node in pulse["preview_nodes"]] == [18, 55, 90]
+
+
+def test_heatflow_player_page_is_served(client):
+    page = client.get("/player")
+    assert page.status_code == 200
+    assert 'aria-label="HeatFlow media player"' in page.text
+    assert 'aria-label="Rewind 10 seconds"' in page.text
+    assert 'aria-label="Fast-forward 10 seconds"' in page.text
+    assert "Erase removes a track from this playlist only" in page.text
 
 
 def test_livepulse_publishes_events_to_subscribers_from_worker_threads():

@@ -1,3 +1,8 @@
 {
-    "python.terminal.useEnvFile": true
+    "python.terminal.useEnvFile": true,
+    "python.analysis.generateWithTypeAnnotation": true,
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.typeEvaluation.enableExperimentalFeatures": false,
+    "python.analysis.languageServerMode": "full",
+    "python.analysis.typeEvaluation.strictSetInference": false
 }

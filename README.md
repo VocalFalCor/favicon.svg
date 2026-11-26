@@ -4,6 +4,8 @@ Pulse is a local-first music discovery MVP. Its landing page renders SVG artist 
 
 See the [FalCor Pulse proof-of-concept stack diagram](./docs/falcor-pulse-stack.md) for the editable architecture and variable inventory, or the [standalone SVG export](./docs/falcor-pulse-stack.svg).
 
+See the [Explorer outline and day-one delivery timeline](./docs/explorer-day-one.md) for the planned discovery experience and MVP boundaries.
+
 ## Run locally with Docker
 
 1. Copy `.env.example` to `.env`.
@@ -45,8 +47,17 @@ Starter badges are:
 
 The initial release has one configured local profile and one server-side API token, not public multi-user accounts or paid tiers. Do not place commercial recordings in the library unless you have distribution rights. This MVP stores authorized uploads locally; it does not fetch tracks from a third-party music service.
 
+## HeatFlow and Explorer
+
+HeatFlow lets listeners build a playlist from tracks in the local artist library. The queue is stored in this browser's origin-scoped `localStorage`; it is not shared with the server or other browsers. The token stays in page memory and is passed to the same-origin pop-out player in memory, not saved with the playlist. The player shows track, artist area, HeatScore, and playback time; it supports play/pause, ±10-second seeking, shuffle, and queue-only erase. Erasing never deletes the library audio.
+
+The pop-out player is served at `/player`. Open it from the landing page after adding at least one track to HeatFlow. Allow pop-ups for the local Pulse origin if the browser blocks it.
+
+Explorer is the planned discovery surface for searching and filtering the local catalog, understanding HeatScore signals, previewing authorized tracks, and sending selections into HeatFlow. The current landing page supplies the artist catalog and playlist pieces; the Explorer outline documents the remaining scope and realistic delivery estimate.
+
 ## API
 
+- `GET /player` — serve the HeatFlow pop-out player page.
 - `GET /api/pulse` — artist catalog, metrics, visual properties, and per-artist Heat gain hits / last-check status.
 - `GET /api/pulse/events` — public server-sent event stream; event payloads contain only change type and timestamp.
 - `POST /api/artists` — add an artist (`name`, `area`, optional `genre` and `bio`).

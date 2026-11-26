@@ -71,6 +71,20 @@
       .track { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 13px; }
       .track-title { font-size: .9rem; margin-bottom: 8px; }
       .track-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .heatflow { margin: 0 0 24px; background: radial-gradient(ellipse at 90% 0%, #31245c 0%, var(--panel) 55%); }
+      .heatflow-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
+      .heatflow-head h2 { margin: 4px 0; color: #e8dfff; }
+      .heatflow-head p { margin: 0; font-size: .88rem; }
+      .heatflow-tools { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
+      .heatflow-tools label { display: grid; gap: 5px; }
+      .heatflow-tools input { width: 170px; }
+      .heatflow-list { display: grid; gap: 8px; margin-top: 18px; }
+      .heatflow-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
+      .heatflow-item.selected { border-color: #b28cff; box-shadow: 0 0 14px #b28cff26; }
+      .heatflow-item button:first-child { color: #e9e3ff; background: #211d38; text-align: left; }
+      .heatflow-item .heatflow-meta { color: var(--muted); font-size: .78rem; margin-left: auto; }
+      .heatflow-empty { border: 1px dashed #514578; border-radius: 10px; padding: 16px; color: #bcb3d7; }
+      .heatflow-note { margin: 10px 0 0; font-size: .78rem; }
       .now-playing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 1.4fr); gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 12px 14px; margin-top: 14px; color: #d7ddf0; }
       .now-playing[hidden] { display: none; }
       .now-playing audio { width: 100%; }
@@ -92,6 +106,9 @@
       @media (max-width: 760px) {
         .hero { grid-template-columns: 1fr; padding: 30px 0 44px; gap: 26px; }
         .tools { grid-template-columns: 1fr; }
+        .heatflow-head { align-items: start; flex-direction: column; }
+        .heatflow-tools { width: 100%; align-items: stretch; }
+        .heatflow-tools input { width: 100%; }
         .now-playing { grid-template-columns: 1fr; }
         .section-head { align-items: start; flex-direction: column; }
         .token-box { width: 100%; max-width: none; }
@@ -149,6 +166,27 @@
         <p id="notice" class="notice" role="status"></p>
       </section>
 
+      <section class="panel heatflow" aria-label="HeatFlow playlist creator">
+        <div class="heatflow-head">
+          <div>
+            <div class="eyebrow">Local playlist studio</div>
+            <h2>HeatFlow</h2>
+            <p>Add authorized tracks from the library, then open the player in a separate window.</p>
+          </div>
+          <div class="heatflow-tools">
+            <label for="heatflow-name">Playlist name
+              <input id="heatflow-name" type="text" maxlength="60" value="HeatFlow">
+            </label>
+            <button id="save-heatflow-name" class="secondary" type="button">Save name</button>
+            <button id="open-heatflow-player" type="button">Pop out player</button>
+          </div>
+        </div>
+        <div id="heatflow-list" class="heatflow-list" aria-live="polite">
+          <div class="heatflow-empty">No tracks yet. Add one from the artist library below.</div>
+        </div>
+        <p id="heatflow-note" class="heatflow-note" role="status">Saved in this browser only. Erase removes from HeatFlow, not the library.</p>
+      </section>
+
       <section class="panel profile" aria-label="Free tier and badges">
         <h2 id="profile-title">Free listener tier</h2>
         <p id="profile-copy">Unlimited listens. Voting is optional; after 50 daily listens, you’ll see a local-scene voting prompt.</p>
@@ -180,7 +218,7 @@
         </div>
       </section>
     </main>
-    <footer>Free tier: unlimited listening. After 50 listens in a UTC day, local voting is suggested—not required. Your API token stays in this tab only.</footer>
+    <footer>Free tier: unlimited listening. After 50 listens in a UTC day, local voting is suggested—not required. The API token is kept in page memory and is not saved with HeatFlow.</footer>
     <script>
       const svgNS = "http://www.w3.org/2000/svg";
       const tokenInput = document.getElementById("api-token");
@@ -190,8 +228,10 @@
       const nowPlaying = document.getElementById("now-playing");
       const nowPlayingTitle = document.getElementById("now-playing-title");
       const audioPlayer = document.getElementById("audio-player");
+      const heatFlowKey = "falcor.pulse.heatflow.v1";
       const headers = () => ({ Authorization: `Bearer ${tokenInput.value.trim()}` });
       let liveEvents;
+      let heatFlowPlayerWindow = null;
 
       function setConnection(state, label) {
         connection.dataset.state = state;
@@ -230,6 +270,203 @@
         notice.textContent = message;
         notice.style.color = error ? "#ff8ba7" : "";
       }
+
+      function showHeatFlowNote(message, error = false) {
+        const note = document.getElementById("heatflow-note");
+        note.textContent = message;
+        note.style.color = error ? "#ff8ba7" : "";
+      }
+
+      function emptyHeatFlow() {
+        return { version: 1, name: "HeatFlow", tracks: [], currentTrackId: null, shuffle: false };
+      }
+
+      function parseHeatFlowState(raw) {
+        if (raw === null) return emptyHeatFlow();
+        let saved;
+        try {
+          saved = JSON.parse(raw);
+        } catch (error) {
+          throw new Error(`Saved HeatFlow playlist is invalid: ${error.message}`);
+        }
+        if (
+          !saved ||
+          saved.version !== 1 ||
+          typeof saved.name !== "string" ||
+          !Array.isArray(saved.tracks) ||
+          typeof saved.shuffle !== "boolean"
+        ) {
+          throw new Error("Saved HeatFlow playlist has an unsupported format.");
+        }
+        const tracks = saved.tracks.map((track) => {
+          if (
+            !track ||
+            ["track_id", "artist_id", "title", "artist_name", "area"].some(
+              (key) => typeof track[key] !== "string" || !track[key]
+            ) ||
+            typeof track.heat_score !== "number" ||
+            !Number.isFinite(track.heat_score) ||
+            typeof track.color !== "string" ||
+            !/^#[0-9a-f]{6}$/i.test(track.color)
+          ) {
+            throw new Error("Saved HeatFlow playlist contains an invalid track.");
+          }
+          return {
+            track_id: track.track_id,
+            artist_id: track.artist_id,
+            title: track.title,
+            artist_name: track.artist_name,
+            area: track.area,
+            heat_score: track.heat_score,
+            color: track.color
+          };
+        });
+        const currentTrackId =
+          typeof saved.currentTrackId === "string" &&
+          tracks.some((track) => track.track_id === saved.currentTrackId)
+            ? saved.currentTrackId
+            : tracks[0]?.track_id || null;
+        return {
+          version: 1,
+          name: saved.name.trim().slice(0, 60) || "HeatFlow",
+          tracks,
+          currentTrackId,
+          shuffle: saved.shuffle
+        };
+      }
+
+      let heatFlowState;
+      try {
+        heatFlowState = parseHeatFlowState(localStorage.getItem(heatFlowKey));
+      } catch (error) {
+        heatFlowState = emptyHeatFlow();
+        showHeatFlowNote(`${error.message} This session started with an empty HeatFlow playlist.`, true);
+      }
+
+      function syncHeatFlowPlayer(message = { type: "heatflow:sync" }) {
+        if (!heatFlowPlayerWindow || heatFlowPlayerWindow.closed) return;
+        heatFlowPlayerWindow.postMessage(
+          { ...message, token: tokenInput.value.trim() },
+          location.origin
+        );
+      }
+
+      function saveHeatFlow() {
+        try {
+          localStorage.setItem(heatFlowKey, JSON.stringify(heatFlowState));
+          syncHeatFlowPlayer();
+          return true;
+        } catch (error) {
+          showHeatFlowNote(`Could not save HeatFlow in this browser: ${error.message}`, true);
+          return false;
+        }
+      }
+
+      function renderHeatFlow() {
+        const nameInput = document.getElementById("heatflow-name");
+        const list = document.getElementById("heatflow-list");
+        if (document.activeElement !== nameInput) nameInput.value = heatFlowState.name;
+        list.replaceChildren();
+        if (!heatFlowState.tracks.length) {
+          const empty = document.createElement("div");
+          empty.className = "heatflow-empty";
+          empty.textContent = "No tracks yet. Add one from the artist library below.";
+          list.append(empty);
+          return;
+        }
+        heatFlowState.tracks.forEach((track, index) => {
+          const item = document.createElement("div");
+          item.className = `heatflow-item${track.track_id === heatFlowState.currentTrackId ? " selected" : ""}`;
+          const select = button(`${index + 1}. ${track.title}`, () => {
+            heatFlowState.currentTrackId = track.track_id;
+            saveHeatFlow();
+            renderHeatFlow();
+          }, true);
+          const meta = document.createElement("span");
+          meta.className = "heatflow-meta";
+          meta.textContent = `${track.artist_name} · ${track.area}`;
+          const erase = button("Erase", () => removeFromHeatFlow(track.track_id), true);
+          erase.title = "Remove from HeatFlow only; keep the track in the library";
+          item.append(select, meta, erase);
+          list.append(item);
+        });
+      }
+
+      function addToHeatFlow(artist, track) {
+        let item = heatFlowState.tracks.find((entry) => entry.track_id === track.id);
+        let message;
+        if (!item) {
+          item = {
+            track_id: track.id,
+            artist_id: artist.id,
+            title: track.title,
+            artist_name: artist.name,
+            area: artist.area,
+            heat_score: artist.heat_score,
+            color: artist.color
+          };
+          heatFlowState.tracks.push(item);
+          message = `Added “${track.title}” to ${heatFlowState.name}.`;
+        } else {
+          message = `“${track.title}” is already in ${heatFlowState.name}.`;
+        }
+        heatFlowState.currentTrackId = item.track_id;
+        const saved = saveHeatFlow();
+        renderHeatFlow();
+        if (saved) showHeatFlowNote(message);
+      }
+
+      function removeFromHeatFlow(trackId) {
+        const index = heatFlowState.tracks.findIndex((track) => track.track_id === trackId);
+        if (index < 0) return;
+        const [removed] = heatFlowState.tracks.splice(index, 1);
+        if (heatFlowState.currentTrackId === trackId) {
+          heatFlowState.currentTrackId = heatFlowState.tracks[Math.min(index, heatFlowState.tracks.length - 1)]?.track_id || null;
+        }
+        const saved = saveHeatFlow();
+        renderHeatFlow();
+        if (saved) showHeatFlowNote(`Removed “${removed.title}” from HeatFlow. The library track was not deleted.`);
+      }
+
+      function openHeatFlowPlayer() {
+        if (!heatFlowState.tracks.length) {
+          showHeatFlowNote("Add a track to HeatFlow before opening the player.", true);
+          return;
+        }
+        if (!heatFlowPlayerWindow || heatFlowPlayerWindow.closed) {
+          heatFlowPlayerWindow = window.open(
+            "/player",
+            "pulseHeatFlowPlayer",
+            "popup=yes,width=440,height=760,resizable=yes"
+          );
+        }
+        if (!heatFlowPlayerWindow) {
+          showHeatFlowNote("The browser blocked the HeatFlow pop-out. Allow pop-ups for Pulse and try again.", true);
+          return;
+        }
+        heatFlowPlayerWindow.focus();
+        syncHeatFlowPlayer({ type: "heatflow:init" });
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.origin !== location.origin || event.source !== heatFlowPlayerWindow || !event.data) return;
+        if (event.data.type === "heatflow:ready") {
+          syncHeatFlowPlayer({ type: "heatflow:init" });
+        } else if (event.data.type === "heatflow:pause-main") {
+          audioPlayer.pause();
+        }
+      });
+
+      window.addEventListener("storage", (event) => {
+        if (event.key !== heatFlowKey) return;
+        try {
+          heatFlowState = parseHeatFlowState(event.newValue);
+          renderHeatFlow();
+          showHeatFlowNote("HeatFlow updated in another window.");
+        } catch (error) {
+          showHeatFlowNote(error.message, true);
+        }
+      });
 
       function svgElement(tag, attributes = {}) {
         const node = document.createElementNS(svgNS, tag);
@@ -355,6 +592,9 @@
                 }
                 nowPlayingTitle.textContent = `Now playing: ${track.title} · ${artist.name}`;
                 nowPlaying.hidden = false;
+                if (heatFlowPlayerWindow && !heatFlowPlayerWindow.closed) {
+                  heatFlowPlayerWindow.postMessage({ type: "heatflow:pause" }, location.origin);
+                }
                 audioPlayer.src = `/api/tracks/${encodeURIComponent(track.id)}/audio`;
                 try {
                   await audioPlayer.play();
@@ -381,9 +621,10 @@
                 showNotice(error.message, true);
               }
             }, true);
+            const addToHeatFlowButton = button("Add to HeatFlow", () => addToHeatFlow(artist, track), true);
             vote.disabled = !artist.can_vote;
             vote.title = artist.can_vote ? "Vote for this local artist" : "Voting is limited to your configured area";
-            actions.append(listen, vote);
+            actions.append(listen, addToHeatFlowButton, vote);
             row.append(trackTitle, actions);
             card.append(row);
           }
@@ -443,7 +684,23 @@
       }
 
       document.getElementById("refresh").addEventListener("click", loadPulse);
-      tokenInput.addEventListener("change", loadProfile);
+      tokenInput.addEventListener("input", () => syncHeatFlowPlayer({ type: "heatflow:init" }));
+      tokenInput.addEventListener("change", () => {
+        loadProfile();
+        syncHeatFlowPlayer({ type: "heatflow:init" });
+      });
+      document.getElementById("save-heatflow-name").addEventListener("click", () => {
+        const name = document.getElementById("heatflow-name").value.trim();
+        if (!name) {
+          showHeatFlowNote("Playlist name cannot be blank.", true);
+          return;
+        }
+        heatFlowState.name = name.slice(0, 60);
+        const saved = saveHeatFlow();
+        renderHeatFlow();
+        if (saved) showHeatFlowNote(`Saved playlist name: ${heatFlowState.name}.`);
+      });
+      document.getElementById("open-heatflow-player").addEventListener("click", openHeatFlowPlayer);
       document.getElementById("artist-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
@@ -483,6 +740,7 @@
           showNotice(error.message, true);
         }
       });
+      renderHeatFlow();
       startLivePulse();
       loadPulse();
       window.setInterval(loadPulse, 30000);

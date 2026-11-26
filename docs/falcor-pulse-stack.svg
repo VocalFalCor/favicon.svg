@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1480" role="img" aria-labelledby="title description">
   <title id="title">FalCor Pulse proof-of-concept stack</title>
-  <desc id="description">Current Pulse MVP architecture, runtime variables, HeatScore formula, and future agentic integration boundary.</desc>
+  <desc id="description">Current Pulse MVP architecture, HeatFlow player, runtime variables, HeatScore formula, and future agentic integration boundary.</desc>
   <defs>
     <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#35d6ff"/>
@@ -58,8 +58,8 @@
   <text x="96" y="297" class="body">Pulse landing page</text>
   <text x="96" y="326" class="body">• live SVG HeatScore nodes</text>
   <text x="96" y="354" class="body">• authorized track upload / play</text>
-  <text x="96" y="382" class="body">• local vote and badge controls</text>
-  <text x="96" y="417" class="small">Browser token stays in this tab</text>
+  <text x="96" y="382" class="body">• votes, badges, HeatFlow pop-out</text>
+  <text x="96" y="417" class="small">Token stays in page memory</text>
 
   <rect x="460" y="220" width="390" height="225" rx="18" class="card-current"/>
   <text x="486" y="260" class="card-title">FastAPI + Uvicorn</text>
