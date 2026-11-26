@@ -7,6 +7,9 @@ import uuid
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -356,6 +359,73 @@ def get_pulse() -> dict:
             {"heat_score": score, **heat_visuals(score)} for score in (18, 55, 90)
         ],
     }
+
+
+@app.post("/api/automations/pulse-summary", dependencies=[Depends(require_api_token)])
+def create_pulse_summary() -> dict[str, str]:
+    webhook_url = os.getenv("PULSE_N8N_WEBHOOK_URL", "").strip()
+    parsed_url = urlparse(webhook_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise HTTPException(
+            status_code=503,
+            detail="Configure PULSE_N8N_WEBHOOK_URL with an active local n8n webhook",
+        )
+
+    pulse = get_pulse()
+    artists = sorted(
+        pulse["artists"],
+        key=lambda artist: (-artist["heat_score"], artist["name"].casefold()),
+    )
+    payload = {
+        "generated_at": timestamp(utc_now()),
+        "artist_count": len(artists),
+        "track_count": sum(len(artist["tracks"]) for artist in artists),
+        "artists": [
+            {
+                "name": artist["name"],
+                "area": artist["area"],
+                "genre": artist["genre"],
+                "heat_score": artist["heat_score"],
+                "heat_gain_hits": artist["heat_gain_hits"],
+                "recent_listens": artist["recent_listens"],
+                "local_votes": artist["local_votes"],
+                "track_count": len(artist["tracks"]),
+            }
+            for artist in artists[:5]
+        ],
+    }
+    request = Request(
+        webhook_url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=10) as response:
+            result = json.loads(response.read())
+    except HTTPError as error:
+        raise HTTPException(
+            status_code=502,
+            detail=f"The n8n workflow returned HTTP {error.code}",
+        ) from error
+    except (URLError, TimeoutError) as error:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not reach the configured n8n workflow",
+        ) from error
+    except json.JSONDecodeError as error:
+        raise HTTPException(
+            status_code=502,
+            detail="The n8n workflow returned invalid JSON",
+        ) from error
+
+    summary = result.get("summary") if isinstance(result, dict) else None
+    if not isinstance(summary, str) or not summary.strip() or len(summary) > 2000:
+        raise HTTPException(
+            status_code=502,
+            detail="The n8n workflow response must contain a summary of 1–2000 characters",
+        )
+    return {"summary": summary.strip()}
 
 
 @app.get("/api/pulse/events")

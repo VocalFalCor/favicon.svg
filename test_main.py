@@ -98,6 +98,57 @@ def test_heatflow_player_page_is_served(client):
     assert "Erase removes a track from this playlist only" in page.text
 
 
+def test_pulse_summary_requires_token_and_active_n8n_webhook(client, monkeypatch):
+    monkeypatch.setenv("PULSE_API_TOKEN", "test-token")
+    monkeypatch.delenv("PULSE_N8N_WEBHOOK_URL", raising=False)
+
+    assert client.post("/api/automations/pulse-summary").status_code == 401
+    response = client.post(
+        "/api/automations/pulse-summary",
+        headers={"Authorization": "Bearer test-token"},
+    )
+    assert response.status_code == 503
+    assert "PULSE_N8N_WEBHOOK_URL" in response.json()["detail"]
+
+
+def test_pulse_summary_sends_limited_catalog_to_n8n(client, monkeypatch):
+    monkeypatch.setenv("PULSE_API_TOKEN", "test-token")
+    monkeypatch.setenv(
+        "PULSE_N8N_WEBHOOK_URL", "http://127.0.0.1:5678/webhook/pulse-summary"
+    )
+    headers = {"Authorization": "Bearer test-token"}
+    artist = client.post(
+        "/api/artists",
+        json={"name": "Local Echo", "area": "Toronto", "bio": "Not sent to n8n"},
+        headers=headers,
+    )
+    assert artist.status_code == 201
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+        def read(self):
+            return b'{"summary":"Local Echo is the top artist."}'
+
+    def fake_urlopen(request, timeout):
+        assert request.full_url == "http://127.0.0.1:5678/webhook/pulse-summary"
+        assert timeout == 10
+        payload = json.loads(request.data)
+        assert payload["artist_count"] == 1
+        assert payload["artists"][0]["name"] == "Local Echo"
+        assert "bio" not in payload["artists"][0]
+        return FakeResponse()
+
+    monkeypatch.setattr(main, "urlopen", fake_urlopen)
+    response = client.post("/api/automations/pulse-summary", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == {"summary": "Local Echo is the top artist."}
+
+
 def test_livepulse_publishes_events_to_subscribers_from_worker_threads():
     async def verify_event_delivery():
         previous_loop = main.pulse_event_loop
