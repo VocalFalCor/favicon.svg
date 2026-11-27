@@ -49,6 +49,14 @@ The source intake accepts public links from YouTube, SoundCloud, or WorldStar an
 
 The RSVP page describes the POC offerings: community recognition, early HeatFlow/HeatScore previews, artist-feature nominations, and a voice in shaping Pulse. It collects no email and makes no guaranteed-promotion or pay-to-play promise. For the source intake agent instructions and safety requirements, see [FalCor source-intake task prompt](./docs/falcor-source-intake-agent-prompt.md).
 
+## North American artist archive discovery
+
+The archive discovery agent searches the public MusicBrainz artist catalog for up to 10 candidates in each of five tags: North American Hip-Hop & Drill, Hard Rock, Blues, Underground, and Indie. It limits results to the United States, Canada, and Mexico, records MusicBrainz attribution and tags, and stages candidates in a token-protected review queue. MusicBrainz is a metadata catalog; its community tags can be incomplete or inaccurate, so an operator reviews each candidate before adding an artist profile.
+
+Discovery only creates artist metadata. It does not create tracks, fetch audio, clear distribution rights, contact artists, or guarantee that a candidate is independent or active. A profile approval is not rights approval. Tracks still need a separately reviewed source intake and the existing uploader rights confirmation. MusicBrainz requests use the official [Web Service API](https://musicbrainz.org/doc/MusicBrainz_API), its [search API](https://musicbrainz.org/doc/MusicBrainz_API/Search), and a descriptive User-Agent; calls are serialized to respect its one-request-per-second limit. Review MusicBrainz's current service terms before any commercial deployment.
+
+For the discovery-agent operating contract, see [FalCor music archive agent prompt](./docs/falcor-music-archive-agent-prompt.md).
+
 The free tier has unlimited listening. Starting with the 51st listen in a UTC day, the API can prompt the profile to vote for a local artist; voting is optional and never blocks listening. An artist is votable when its area matches `PULSE_USER_AREA`. This is a profile setting, not location verification.
 
 Starter badges are:
@@ -73,6 +81,8 @@ The initial release has one configured local profile and one server-side API tok
 - `POST /api/top5/publish` — organizer-select a winner and archive the published result to `data/insights/top5/` (host) or `/data/insights/top5/` (Compose).
 - `POST /api/source-intakes` — submit an allowlisted media link for manual rights review and create a Founder’s Circle invite.
 - `GET /api/source-intakes/{id}` / `POST /api/source-intakes/{id}/rights-review` — inspect a lead and record the operator's `cleared` or `rejected` decision with a short, non-sensitive basis.
+- `POST /api/archive/discover` — search MusicBrainz and stage up to 10 artist candidates per selected archive genre (all five by default).
+- `GET /api/archive/candidates` / `POST /api/archive/candidates/{id}/review` — inspect candidates and manually approve or reject them; approval creates an artist profile only.
 - `GET /api/founders/{invite_id}` / `POST /api/founders/{invite_id}/rsvp` — view and answer the opt-in invitation.
 - `GET /api/profile` — free-tier status and badge progress.
 

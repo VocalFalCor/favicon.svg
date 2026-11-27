@@ -3,76 +3,70 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#03040a">
+    <meta name="theme-color" content="#030303">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <title>Pulse — local music, in motion</title>
     <style>
       :root {
         color-scheme: dark;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-        background: #03040a;
+        background: #030303;
         color: #eef1ff;
         font-synthesis: none;
         text-rendering: optimizeLegibility;
-        --panel: #090c15;
-        --panel-deep: #05070c;
-        --muted: #a6b1ca;
-        --line: #20283a;
-        --cyan: #35f2ff;
-        --pink: #ff45d4;
-        --acid: #d5ff3f;
-        --violet: #9c70ff;
+        --panel: #080b12;
+        --panel-deep: #020409;
+        --muted: #b1bdd6;
+        --line: #28324a;
+        --neon-green: #52ff39;
+        --neon-yellow: #ffe23b;
+        --bright-yellow: #e8ff3b;
+        --neon-red: #ff4438;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         min-width: 320px;
-        background-color: #03040a;
-        background-image:
-          linear-gradient(#35f2ff09 1px, transparent 1px),
-          linear-gradient(90deg, #35f2ff09 1px, transparent 1px),
-          radial-gradient(ellipse at 12% 0%, #06303a66, transparent 34rem),
-          radial-gradient(ellipse at 94% 18%, #310d3252, transparent 34rem);
-        background-size: 48px 48px, 48px 48px, auto, auto;
+        background: #030303;
       }
       header, main, footer { width: min(1120px, calc(100% - 40px)); margin: auto; }
       header { display: flex; justify-content: space-between; align-items: center; padding: 26px 0; }
       .brand { display: flex; align-items: center; gap: 12px; font-size: 1.15rem; font-weight: 800; letter-spacing: .12em; }
       .brand svg { width: 38px; height: 38px; }
       .status { color: var(--muted); font-size: .9rem; }
-      .status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f0bf64; margin-right: 9px; box-shadow: 0 0 12px #f0bf64; }
-      .status[data-state="live"]::before { background: #46e6aa; box-shadow: 0 0 12px #46e6aa; }
-      .status[data-state="offline"]::before { background: #ff6d86; box-shadow: 0 0 12px #ff6d86; }
+      .status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ffe23b; margin-right: 9px; box-shadow: 0 0 12px #ffe23b; }
+      .status[data-state="live"]::before { background: #52ff39; box-shadow: 0 0 12px #52ff39; }
+      .status[data-state="offline"]::before { background: #ff4438; box-shadow: 0 0 12px #ff4438; }
       .live-activity { color: #b5c3e6; border-top: 1px solid var(--line); margin: 8px 8px 0; padding: 10px 0 2px; min-height: 34px; font-size: .8rem; }
       .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 42px; align-items: center; padding: 52px 0 64px; }
-      .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .2em; font-weight: 700; font-size: .76rem; }
+      .eyebrow { color: var(--neon-green); text-transform: uppercase; letter-spacing: .2em; font-weight: 700; font-size: .76rem; }
       h1 { font-size: clamp(2.8rem, 6vw, 5.2rem); line-height: .98; letter-spacing: -.06em; margin: 18px 0; }
       h1 span {
-        color: var(--cyan);
-        background: linear-gradient(100deg, var(--cyan), #8a88ff 54%, var(--pink));
+        color: var(--neon-green);
+        background: linear-gradient(100deg, #52ff39, #ffe23b 54%, #ff4438);
         background-clip: text;
         -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 22px #35f2ff30);
+        filter: drop-shadow(0 0 26px #52ff3955);
       }
       p { color: var(--muted); line-height: 1.65; }
       .hero-copy > p { max-width: 480px; font-size: 1.05rem; }
-      .chip { display: inline-flex; border: 1px solid #35f2ff35; border-radius: 999px; padding: 8px 13px; color: #d4faff; background: #071116; font-size: .8rem; margin: 8px 7px 0 0; box-shadow: inset 0 0 14px #35f2ff08; }
+      .chip { display: inline-flex; border: 1px solid #52ff3955; border-radius: 999px; padding: 8px 13px; color: #e7ffe2; background: #050805; font-size: .8rem; margin: 8px 7px 0 0; box-shadow: inset 0 0 16px #52ff3912, 0 0 12px #52ff390a; }
       .visual {
         position: relative;
-        border: 1px solid #35f2ff55;
+        border: 1px solid #52ff39a8;
         border-radius: 24px;
         background:
-          radial-gradient(ellipse at 50% 48%, #101728 0%, #070a12 60%, #03050a 100%);
+          radial-gradient(ellipse at 50% 48%, #101610 0%, #070907 60%, #030303 100%);
         padding: 18px;
         overflow: hidden;
-        box-shadow: 0 0 0 1px #ff45d410, 0 22px 70px #000b, 0 0 38px #16e9ff12, inset 0 0 36px #060910;
+        box-shadow: 0 0 0 1px #ff443826, 0 22px 70px #000d, 0 0 42px #52ff3928, inset 0 0 40px #030503;
       }
       .visual::before {
         content: "";
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background: linear-gradient(120deg, #35f2ff0a, transparent 42%, #ff45d40b);
+        background: linear-gradient(120deg, #52ff3910, transparent 42%, #ff44380b);
       }
       .visual svg {
         position: relative;
@@ -81,19 +75,19 @@
         min-height: 280px;
         border-radius: 14px;
         background-image:
-          linear-gradient(#35f2ff08 1px, transparent 1px),
-          linear-gradient(90deg, #35f2ff08 1px, transparent 1px);
+          linear-gradient(#52ff3908 1px, transparent 1px),
+          linear-gradient(90deg, #52ff3908 1px, transparent 1px);
         background-size: 32px 32px;
       }
-      .visual-orbit { fill: none; stroke: #35f2ff; stroke-width: 1; opacity: .2; }
-      .visual-orbit.outer { stroke: var(--pink); stroke-dasharray: 2 10; opacity: .28; animation: orbit-drift 32s linear infinite; }
+      .visual-orbit { fill: none; stroke: #52ff39; stroke-width: 1; opacity: .2; }
+      .visual-orbit.outer { stroke: var(--neon-yellow); stroke-dasharray: 2 10; opacity: .5; animation: orbit-drift 32s linear infinite; }
       .visual-orbit.inner { stroke-dasharray: 1 7; animation: orbit-drift 24s linear infinite reverse; }
-      .planet-atmosphere { fill: #35f2ff0d; stroke: #35f2ff9c; stroke-width: 1; filter: drop-shadow(0 0 12px #35f2ff); }
-      .planet-back-ring { fill: none; stroke: var(--violet); stroke-width: 3; stroke-dasharray: 2 5; opacity: .8; }
-      .planet-body { fill: url(#pulse-planet-surface); stroke: #a4ffff; stroke-width: 1.4; filter: drop-shadow(0 0 15px #35f2ff70); }
-      .planet-continent { fill: #35f2ff30; stroke: #73f9ff; stroke-width: .8; }
-      .planet-meridian, .planet-latitude { fill: none; stroke: #a1fcff; stroke-width: .7; opacity: .55; }
-      .planet-front-ring { fill: none; stroke: var(--pink); stroke-width: 2; stroke-dasharray: 15 7 2 7; filter: drop-shadow(0 0 6px var(--pink)); }
+      .planet-atmosphere { fill: #52ff390d; stroke: #52ff399c; stroke-width: 1; filter: drop-shadow(0 0 12px #52ff39); }
+      .planet-back-ring { fill: none; stroke: var(--neon-red); stroke-width: 3; stroke-dasharray: 2 5; opacity: .8; }
+      .planet-body { fill: url(#pulse-planet-surface); stroke: #d8ffd2; stroke-width: 1.4; filter: drop-shadow(0 0 15px #52ff3970); }
+      .planet-continent { fill: #52ff3930; stroke: #a5ff98; stroke-width: .8; }
+      .planet-meridian, .planet-latitude { fill: none; stroke: #d8ffd2; stroke-width: .7; opacity: .55; }
+      .planet-front-ring { fill: none; stroke: var(--neon-yellow); stroke-width: 2; stroke-dasharray: 15 7 2 7; filter: drop-shadow(0 0 6px var(--neon-yellow)); }
       .heat-node { transform-box: fill-box; transform-origin: center; }
       .heat-node[role="button"] { cursor: pointer; }
       .heat-node .node-aura { fill: var(--heat); opacity: .16; filter: blur(7px); animation: breathe var(--pulse-duration) ease-in-out infinite; }
@@ -102,27 +96,27 @@
       .heat-node:hover .node-aura,
       .heat-node:focus-visible .node-aura { opacity: .48; }
       .heat-node:hover .node-ring,
-      .heat-node:focus-visible .node-ring { stroke: var(--acid); stroke-width: 2; opacity: 1; }
+      .heat-node:focus-visible .node-ring { stroke: var(--bright-yellow); stroke-width: 2; opacity: 1; }
       .heat-node:focus-visible { outline: none; }
       .heat-node text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; paint-order: stroke; stroke: #03040a; stroke-width: 4px; stroke-linejoin: round; filter: drop-shadow(0 0 5px #000); pointer-events: none; }
       @keyframes breathe { 50% { opacity: .42; } }
       @keyframes orbit-drift { to { stroke-dashoffset: -120; } }
       .visual-caption { display: flex; justify-content: space-between; gap: 12px; font-size: .8rem; color: var(--muted); padding: 8px 8px 5px; }
-      .visual-caption span:first-child { color: var(--cyan); letter-spacing: .08em; font-weight: 700; }
+      .visual-caption span:first-child { color: var(--neon-green); letter-spacing: .08em; font-weight: 700; }
       .section-head { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin: 0 0 20px; }
       h2 { font-size: 1.55rem; margin: 0; }
       .section-head p { margin: 7px 0 0; font-size: .9rem; }
-      .token-box, .panel, .artist-card { border: 1px solid var(--line); background: linear-gradient(145deg, #0b0e18, #06080e); border-radius: 16px; }
+      .token-box, .panel, .artist-card { border: 1px solid var(--line); background: linear-gradient(145deg, #080b14, #03050a); border-radius: 16px; }
       .token-box { padding: 10px 12px; display: flex; gap: 8px; align-items: center; max-width: 390px; }
       input, button, select { font: inherit; }
       input[type="password"], input[type="text"], input[type="file"], textarea { color: #f0f3ff; background: #04060b; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; min-width: 0; }
       select { color: #f0f3ff; background: #04060b; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; min-width: 0; }
       textarea { font: inherit; min-height: 84px; resize: vertical; }
       input[type="password"] { width: 190px; }
-      button { color: #001014; background: linear-gradient(110deg, #35f2ff, #8bffec); border: 1px solid #9cffffa8; border-radius: 9px; padding: 10px 14px; cursor: pointer; font-weight: 750; box-shadow: 0 0 18px #35f2ff20; transition: filter .16s ease, box-shadow .16s ease, transform .16s ease; }
-      button.secondary { background: #0b1019; border-color: #9c70ff72; color: #e9ddff; box-shadow: inset 0 0 14px #9c70ff0d; }
-      button:hover { filter: brightness(1.14); box-shadow: 0 0 22px #35f2ff4a; transform: translateY(-1px); }
-      button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+      button { color: #071006; background: linear-gradient(110deg, #52ff39, #cfff3b); border: 1px solid #d5ffc0; border-radius: 9px; padding: 10px 14px; cursor: pointer; font-weight: 750; box-shadow: 0 0 20px #52ff3938; transition: filter .16s ease, box-shadow .16s ease, transform .16s ease; }
+      button.secondary { background: #0c0c07; border-color: #ffe23b88; color: #fff3b0; box-shadow: inset 0 0 16px #ffe23b18, 0 0 14px #ffe23b12; }
+      button:hover { filter: brightness(1.18) saturate(1.25); box-shadow: 0 0 26px #52ff3966; transform: translateY(-1px); }
+      button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--bright-yellow); outline-offset: 3px; }
       button:disabled { opacity: .55; cursor: wait; }
       .library { padding: 26px 0 56px; }
       .artist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
@@ -134,36 +128,44 @@
       .artist-card h3 { margin: 0; font-size: 1.05rem; }
       .artist-card p { margin: 5px 0 14px; font-size: .86rem; }
       .score { color: var(--heat); font-weight: 800; font-variant-numeric: tabular-nums; }
-      .gain-counter { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border: 1px solid #35f2ff25; border-radius: 9px; padding: 8px 10px; margin: 4px 0 12px; color: #c3d1ea; background: #04070d; font-size: .8rem; }
+      .gain-counter { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border: 1px solid #52ff3925; border-radius: 9px; padding: 8px 10px; margin: 4px 0 12px; color: #c3d1ea; background: #04070d; font-size: .8rem; }
       .gain-counter strong { color: var(--heat); font-variant-numeric: tabular-nums; }
       .meter { height: 5px; border-radius: 99px; background: #171d29; overflow: hidden; margin: 12px 0; }
-      .meter span { display: block; height: 100%; width: var(--score); background: linear-gradient(90deg, var(--cyan), var(--heat)); box-shadow: 0 0 15px var(--heat); }
+      .meter span { display: block; height: 100%; width: var(--score); background: linear-gradient(90deg, var(--neon-green), var(--heat)); box-shadow: 0 0 15px var(--heat); }
       .track { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 13px; }
       .track-title { font-size: .9rem; margin-bottom: 8px; }
       .track-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-      .heatflow { margin: 0 0 24px; border-color: #9c70ff4a; background: radial-gradient(ellipse at 90% 0%, #22123b 0%, #090b13 58%); box-shadow: inset 0 0 32px #9c70ff0a; }
+      .heatflow { margin: 0 0 24px; border-color: #52ff394a; background: radial-gradient(ellipse at 90% 0%, #101a0d 0%, #070907 58%); box-shadow: inset 0 0 32px #52ff390a; }
       .heatflow-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
-      .heatflow-head h2 { margin: 4px 0; color: #f2eaff; text-shadow: 0 0 18px #b86cff55; }
+      .heatflow-head h2 { margin: 4px 0; color: #edffe5; text-shadow: 0 0 18px #52ff3955; }
       .heatflow-head p { margin: 0; font-size: .88rem; }
       .heatflow-tools { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
       .heatflow-tools label { display: grid; gap: 5px; }
       .heatflow-tools input { width: 170px; }
       .heatflow-list { display: grid; gap: 8px; margin-top: 18px; }
       .heatflow-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
-      .heatflow-item.selected { border-color: var(--violet); box-shadow: 0 0 18px #9c70ff38; }
-      .heatflow-item button:first-child { color: #f2eaff; background: #100d1a; border-color: #9c70ff65; text-align: left; }
+      .heatflow-item.selected { border-color: var(--neon-red); box-shadow: 0 0 18px #ff443838; }
+      .heatflow-item button:first-child { color: #f2f2e9; background: #0c0c09; border-color: #ff443865; text-align: left; }
       .heatflow-item .heatflow-meta { color: var(--muted); font-size: .78rem; margin-left: auto; }
-      .heatflow-empty { border: 1px dashed #514578; border-radius: 10px; padding: 16px; color: #bcb3d7; }
+      .heatflow-empty { border: 1px dashed #55594b; border-radius: 10px; padding: 16px; color: #c1c5b9; }
       .heatflow-note { margin: 10px 0 0; font-size: .78rem; }
-      .source-intake { margin: 0 0 24px; border-color: #35f2ff4a; background: linear-gradient(135deg, #07151a, #080b13 65%, #160b1c); }
-      .source-intake h2 { color: #c8fbff; text-shadow: 0 0 18px #35f2ff3f; }
+      .source-intake { margin: 0 0 24px; border-color: #52ff394a; background: linear-gradient(135deg, #071207, #080b08 65%, #171006); }
+      .source-intake h2 { color: #e5ffe0; text-shadow: 0 0 18px #52ff393f; }
       .source-intake p { max-width: 820px; font-size: .88rem; }
       .source-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, .55fr) auto; gap: 10px; align-items: end; }
       .source-form label { display: grid; gap: 6px; }
       .source-result { margin: 12px 0 0; }
-      .source-result a { color: var(--cyan); overflow-wrap: anywhere; }
-      .top5 { margin: 0 0 24px; border-color: #9c70ff55; background: radial-gradient(ellipse at 100% 0%, #211238 0%, #080a12 58%); }
-      .top5 h2 { color: #f2eaff; text-shadow: 0 0 18px #b86cff44; }
+      .source-result a { color: var(--neon-green); overflow-wrap: anywhere; }
+      .archive-discovery { margin: 0 0 24px; border-color: #ff443855; background: radial-gradient(ellipse at 100% 0%, #1a100c 0%, #080807 58%); }
+      .archive-discovery h2 { color: #fff0dd; text-shadow: 0 0 18px #ff443844; }
+      .archive-candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin-top: 16px; }
+      .archive-candidate { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: #05070c; }
+      .archive-candidate h3 { margin: 0 0 5px; font-size: 1rem; }
+      .archive-candidate p { margin: 5px 0 10px; font-size: .82rem; }
+      .archive-candidate a { color: var(--neon-green); font-size: .82rem; }
+      .archive-candidate-actions { display: flex; gap: 8px; margin-top: 12px; }
+      .top5 { margin: 0 0 24px; border-color: #ffe23b55; background: radial-gradient(ellipse at 100% 0%, #191607 0%, #080807 58%); }
+      .top5 h2 { color: #fff8da; text-shadow: 0 0 18px #ffe23b44; }
       .top5-copy { max-width: 900px; }
       .top5-form { margin: 16px 0; }
       .top5-fields { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; }
@@ -175,21 +177,21 @@
       .top5-entry > p { margin: 4px 0 10px; font-size: .82rem; }
       .top5-track { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding: 8px 0; font-size: .85rem; }
       .top5-track button { flex: 0 0 auto; }
-      .top5-spark { color: #d9c7ff !important; border: 1px solid #9c70ff63; border-radius: 9px; padding: 9px 11px; margin: 10px 0 0 !important; background: #100c19; }
+      .top5-spark { color: #fff3b0 !important; border: 1px solid #ffe23b63; border-radius: 9px; padding: 9px 11px; margin: 10px 0 0 !important; background: #100f08; }
       .top5-organizer { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }
       .top5-organizer label { min-width: min(100%, 300px); }
       .top5-status { min-height: 24px; margin: 10px 0 0 !important; }
-      .top5-empty { border: 1px dashed #514578; border-radius: 10px; padding: 16px; color: #bcb3d7; }
-      .automation { margin: 0 0 24px; border-color: #35f2ff38; background: radial-gradient(ellipse at 90% 0%, #08212a 0%, #080b13 58%); }
+      .top5-empty { border: 1px dashed #55594b; border-radius: 10px; padding: 16px; color: #c1c5b9; }
+      .automation { margin: 0 0 24px; border-color: #52ff3938; background: radial-gradient(ellipse at 90% 0%, #101a0d 0%, #080a07 58%); }
       .automation-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
       .automation-head h2 { margin: 4px 0; }
       .automation-head p { margin: 0; }
       .automation-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-      .button { display: inline-flex; align-items: center; justify-content: center; color: #001014; background: linear-gradient(110deg, var(--cyan), #8bffec); border: 1px solid #9cffffa8; border-radius: 9px; padding: 10px 14px; cursor: pointer; font: inherit; font-weight: 750; text-decoration: none; box-shadow: 0 0 18px #35f2ff20; transition: filter .16s ease, box-shadow .16s ease, transform .16s ease; }
-      .button.secondary { background: #0b1019; border-color: #9c70ff72; color: #e9ddff; }
+      .button { display: inline-flex; align-items: center; justify-content: center; color: #071006; background: linear-gradient(110deg, var(--neon-green), #cfff3b); border: 1px solid #d5ffc0; border-radius: 9px; padding: 10px 14px; cursor: pointer; font: inherit; font-weight: 750; text-decoration: none; box-shadow: 0 0 18px #52ff3920; transition: filter .16s ease, box-shadow .16s ease, transform .16s ease; }
+      .button.secondary { background: #0c0c07; border-color: #ffe23b72; color: #fff3b0; }
       .button:hover { filter: brightness(1.1); }
       .automation-result { white-space: pre-wrap; border: 1px solid var(--line); border-radius: 10px; background: #04060b; padding: 12px; color: #dce8f6; font: inherit; margin: 12px 0 0; }
-      .now-playing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 1.4fr); gap: 12px; align-items: center; border: 1px solid #35f2ff48; border-radius: 12px; background: #060910; padding: 12px 14px; margin-top: 14px; color: #d7faff; box-shadow: 0 0 20px #35f2ff12; }
+      .now-playing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 1.4fr); gap: 12px; align-items: center; border: 1px solid #52ff3948; border-radius: 12px; background: #060906; padding: 12px 14px; margin-top: 14px; color: #e7ffe2; box-shadow: 0 0 20px #52ff3912; }
       .now-playing[hidden] { display: none; }
       .now-playing audio { width: 100%; }
       .empty { border: 1px dashed #353e61; border-radius: 14px; padding: 28px; color: var(--muted); text-align: center; grid-column: 1 / -1; }
@@ -198,14 +200,14 @@
       .panel h2 { font-size: 1.15rem; margin-bottom: 5px; }
       .panel p { font-size: .86rem; margin: 0 0 15px; }
       form { display: grid; gap: 10px; }
-      form input[type="checkbox"] { accent-color: var(--cyan); }
+      form input[type="checkbox"] { accent-color: var(--neon-green); }
       label { color: #c4cbe0; font-size: .85rem; }
-      .notice { min-height: 24px; color: var(--cyan); font-size: .88rem; margin: 10px 0 0; }
+      .notice { min-height: 24px; color: var(--neon-green); font-size: .88rem; margin: 10px 0 0; }
       .fine-print { font-size: .78rem !important; color: #818ba9 !important; }
       .profile { margin: 0 0 14px; }
       .badge-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
       .badge-tag { border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; color: #8d96b2; font-size: .82rem; }
-      .badge-tag.earned { border-color: #35d6ff80; color: #b7f2ff; background: #35d6ff12; box-shadow: 0 0 12px #35d6ff18; }
+      .badge-tag.earned { border-color: #52ff3980; color: #d5ffcf; background: #52ff3912; box-shadow: 0 0 12px #52ff3918; }
       footer { color: #818ba9; border-top: 1px solid var(--line); padding: 20px 0 30px; font-size: .8rem; }
       @media (max-width: 760px) {
         .hero { grid-template-columns: 1fr; padding: 30px 0 44px; gap: 26px; }
@@ -227,7 +229,7 @@
     <header>
       <div class="brand">
         <svg viewBox="0 0 48 48" role="img" aria-label="Pulse logo">
-          <defs><linearGradient id="logo-glow"><stop stop-color="#35d6ff"/><stop offset="1" stop-color="#ff38a0"/></linearGradient></defs>
+          <defs><linearGradient id="logo-glow"><stop stop-color="#52ff39"/><stop offset=".52" stop-color="#ffe23b"/><stop offset="1" stop-color="#ff4438"/></linearGradient></defs>
           <rect width="48" height="48" rx="14" fill="#121a31"/>
           <path d="M7 25h8l5-12 8 24 5-12h8" fill="none" stroke="url(#logo-glow)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -347,6 +349,16 @@
         </p>
       </section>
 
+      <section class="panel archive-discovery" aria-label="North American music archive discovery">
+        <h2>Archive discovery agent</h2>
+        <p>Find up to 10 North American artist candidates per genre from MusicBrainz: Hip-Hop &amp; Drill, Hard Rock, Blues, Underground, and Indie. Results are attributed, staged for your review, and never auto-approved. This creates artist profiles only—no recordings, rights clearance, or outreach.</p>
+        <button id="discover-archive" type="button">Discover starter candidates</button>
+        <p id="archive-status" role="status"></p>
+        <div id="archive-candidates" class="archive-candidates" aria-live="polite">
+          <div class="heatflow-empty">Add your local API token, then run discovery to review candidates.</div>
+        </div>
+      </section>
+
       <section class="panel automation" aria-label="Pulse automations">
         <div class="automation-head">
           <div>
@@ -455,7 +467,7 @@
 
       function showNotice(message, error = false) {
         notice.textContent = message;
-        notice.style.color = error ? "#ff8ba7" : "";
+        notice.style.color = error ? "#ff554d" : "";
       }
 
       function createHeatFlowState() {
@@ -498,7 +510,7 @@
 
       function showHeatFlowNote(message, error = false) {
         heatFlowNote.textContent = message;
-        heatFlowNote.style.color = error ? "#ff8ba7" : "";
+        heatFlowNote.style.color = error ? "#ff554d" : "";
       }
 
       function syncHeatFlowPlayer() {
@@ -668,10 +680,10 @@
           r: "76%"
         });
         planetSurface.append(
-          svgElement("stop", { offset: "0%", "stop-color": "#547d9d" }),
-          svgElement("stop", { offset: "46%", "stop-color": "#203750" }),
-          svgElement("stop", { offset: "82%", "stop-color": "#0b1425" }),
-          svgElement("stop", { offset: "100%", "stop-color": "#03060d" })
+          svgElement("stop", { offset: "0%", "stop-color": "#8cff69" }),
+          svgElement("stop", { offset: "46%", "stop-color": "#31552a" }),
+          svgElement("stop", { offset: "82%", "stop-color": "#142012" }),
+          svgElement("stop", { offset: "100%", "stop-color": "#050805" })
         );
         const planetClip = svgElement("clipPath", { id: "pulse-planet-clip" });
         planetClip.append(svgElement("circle", { cx: 350, cy: 175, r: 34 }));
@@ -1000,7 +1012,7 @@
           renderTop5(data);
         } catch (error) {
           top5StatusElement.textContent = error.message;
-          top5StatusElement.style.color = "#ff8ba7";
+          top5StatusElement.style.color = "#ff554d";
         }
       }
 
@@ -1030,7 +1042,113 @@
           await Promise.all([loadPulse(), loadTop5()]);
         } catch (error) {
           top5StatusElement.textContent = error.message;
-          top5StatusElement.style.color = "#ff8ba7";
+          top5StatusElement.style.color = "#ff554d";
+        }
+      }
+
+      function renderArchiveCandidates(candidates) {
+        const container = document.getElementById("archive-candidates");
+        container.replaceChildren();
+        if (!candidates.length) {
+          const empty = document.createElement("div");
+          empty.className = "heatflow-empty";
+          empty.textContent = "No archive candidates yet. Run discovery to find artists.";
+          container.append(empty);
+          return;
+        }
+
+        for (const candidate of candidates) {
+          const card = document.createElement("article");
+          card.className = "archive-candidate";
+          const title = document.createElement("h3");
+          title.textContent = candidate.name;
+          card.append(title);
+
+          const details = document.createElement("p");
+          details.textContent =
+            `${candidate.genre} · ${candidate.area}, ${candidate.country} · ` +
+            `${candidate.tags.join(", ") || "no tags"}`;
+          card.append(details);
+          if (candidate.disambiguation) {
+            const description = document.createElement("p");
+            description.textContent = candidate.disambiguation;
+            card.append(description);
+          }
+
+          const source = document.createElement("a");
+          source.href = candidate.source_url;
+          source.target = "_blank";
+          source.rel = "noopener noreferrer";
+          source.textContent = "MusicBrainz source record";
+          card.append(source);
+
+          const status = document.createElement("p");
+          status.textContent = `Review status: ${candidate.status}`;
+          card.append(status);
+          if (candidate.status === "pending") {
+            const actions = document.createElement("div");
+            actions.className = "archive-candidate-actions";
+            for (const decision of ["approved", "rejected"]) {
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = decision === "rejected" ? "secondary" : "";
+              button.textContent = decision === "approved" ? "Add artist" : "Reject";
+              button.addEventListener("click", async () => {
+                button.disabled = true;
+                const reviewStatus = document.getElementById("archive-status");
+                reviewStatus.style.color = "";
+                reviewStatus.textContent =
+                  `${decision === "approved" ? "Adding" : "Rejecting"} ${candidate.name}…`;
+                try {
+                  const response = await fetch(
+                    `/api/archive/candidates/${encodeURIComponent(candidate.id)}/review`,
+                    {
+                      method: "POST",
+                      headers: { ...headers(), "Content-Type": "application/json" },
+                      body: JSON.stringify({ decision })
+                    }
+                  );
+                  const result = await response.json();
+                  if (!response.ok) throw new Error(result.detail || "Could not review this candidate.");
+                  reviewStatus.textContent =
+                    decision === "approved"
+                      ? `${candidate.name} added as an artist profile. No recordings were added.`
+                      : `${candidate.name} rejected.`;
+                  await Promise.all([loadArchiveCandidates(), loadPulse()]);
+                } catch (error) {
+                  reviewStatus.textContent = error.message;
+                  reviewStatus.style.color = "#ff554d";
+                  button.disabled = false;
+                }
+              });
+              actions.append(button);
+            }
+            card.append(actions);
+          }
+          container.append(card);
+        }
+      }
+
+      async function loadArchiveCandidates() {
+        const status = document.getElementById("archive-status");
+        const container = document.getElementById("archive-candidates");
+        status.style.color = "";
+        if (!tokenInput.value.trim()) {
+          container.replaceChildren();
+          const empty = document.createElement("div");
+          empty.className = "heatflow-empty";
+          empty.textContent = "Add your local API token to review archive candidates.";
+          container.append(empty);
+          return;
+        }
+        try {
+          const response = await fetch("/api/archive/candidates", { headers: headers() });
+          const candidates = await response.json();
+          if (!response.ok) throw new Error(candidates.detail || "Could not load archive candidates.");
+          renderArchiveCandidates(candidates);
+        } catch (error) {
+          status.textContent = error.message;
+          status.style.color = "#ff554d";
         }
       }
 
@@ -1087,8 +1205,41 @@
       }
 
       document.getElementById("refresh").addEventListener("click", loadPulse);
-      tokenInput.addEventListener("change", loadProfile);
+      tokenInput.addEventListener("change", () => {
+        loadProfile();
+        loadArchiveCandidates();
+      });
       tokenInput.addEventListener("input", syncHeatFlowPlayer);
+      document.getElementById("discover-archive").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        const status = document.getElementById("archive-status");
+        button.disabled = true;
+        status.style.color = "";
+        status.textContent = "Searching MusicBrainz across the five genres. This may take a few seconds…";
+        try {
+          const response = await fetch("/api/archive/discover", {
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
+            body: JSON.stringify({ limit_per_genre: 10 })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            const detail = Array.isArray(result.detail)
+              ? result.detail.map((item) => item.msg).join("; ")
+              : result.detail;
+            throw new Error(detail || "Music discovery failed.");
+          }
+          await loadArchiveCandidates();
+          status.textContent =
+            `${result.new_candidates} new candidate${result.new_candidates === 1 ? "" : "s"} staged. ` +
+            "Review each one before adding it to the artist catalog.";
+        } catch (error) {
+          status.textContent = error.message;
+          status.style.color = "#ff554d";
+        } finally {
+          button.disabled = false;
+        }
+      });
       document.getElementById("open-heatflow-player").addEventListener("click", openHeatFlowPlayer);
       automationButton.addEventListener("click", async () => {
         automationButton.disabled = true;
@@ -1107,7 +1258,7 @@
           automationStatus.textContent = "Pulse recap complete.";
         } catch (error) {
           automationStatus.textContent = error.message;
-          automationStatus.style.color = "#ff8ba7";
+          automationStatus.style.color = "#ff554d";
         } finally {
           automationButton.disabled = false;
         }
@@ -1157,7 +1308,7 @@
           sourceForm.reset();
         } catch (error) {
           sourceStatus.textContent = error.message;
-          sourceStatus.style.color = "#ff8ba7";
+          sourceStatus.style.color = "#ff554d";
         }
       });
       document.getElementById("top5-entry-form").addEventListener("submit", async (event) => {
@@ -1190,7 +1341,7 @@
           top5StatusElement.textContent = `Entry posted: “${result.title}” by ${result.display_name}.`;
         } catch (error) {
           top5StatusElement.textContent = error.message;
-          top5StatusElement.style.color = "#ff8ba7";
+          top5StatusElement.style.color = "#ff554d";
         } finally {
           submitButton.disabled = false;
         }
@@ -1199,7 +1350,7 @@
         const winnerEntryId = top5WinnerSelect.value;
         if (!winnerEntryId) {
           top5StatusElement.textContent = "Choose an entry before publishing results.";
-          top5StatusElement.style.color = "#ff8ba7";
+          top5StatusElement.style.color = "#ff554d";
           return;
         }
         top5StatusElement.textContent = "";
@@ -1217,7 +1368,7 @@
             `Results published and archived: “${result.contest.winner.title}” by ${result.contest.winner.display_name}.`;
         } catch (error) {
           top5StatusElement.textContent = error.message;
-          top5StatusElement.style.color = "#ff8ba7";
+          top5StatusElement.style.color = "#ff554d";
         }
       });
       document.getElementById("artist-form").addEventListener("submit", async (event) => {

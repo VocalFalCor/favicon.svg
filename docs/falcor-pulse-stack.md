@@ -1,6 +1,6 @@
 # FalCor Pulse — proof-of-concept stack
 
-This diagram distinguishes the live host-run API from the configured-but-stopped Docker/Jupyter stack and the agentic components not yet connected to Pulse.
+This diagram distinguishes the live host-run API, the configured-but-stopped Docker/Jupyter stack, and the separately configured n8n/Ollama stack.
 
 ```mermaid
 flowchart TB
@@ -12,6 +12,8 @@ flowchart TB
 
     subgraph pulse["Pulse API · live on host Uvicorn; Docker Compose configured"]
         api["FastAPI + Uvicorn<br/>pulse · artists · tracks<br/>listens · votes · profile"]
+        discovery["Archive discovery<br/>MusicBrainz artist search<br/>five genres · up to 10 each"]
+        candidates[("Archive candidate queue<br/>North America only · pending review<br/>MusicBrainz IDs / tags / source URLs")]
         intake["Source intake<br/>allowlisted links · pending rights review<br/>operator review gates linked uploads"]
         founders["Founder’s Circle<br/>opt-in RSVP · no email"]
         score["HeatScore engine<br/>40% recent listens · 30% local votes<br/>30% freshness"]
@@ -22,6 +24,8 @@ flowchart TB
         badges["Free-tier rules<br/>unlimited listens · optional vote prompt<br/>Listener · Scout · Pulse Setter"]
         api <--> sqlite
         api <--> audio
+        api --> discovery --> candidates --> sqlite
+        candidates -->|"operator approval creates profile only"| api
         api --> intake --> sqlite
         intake --> founders --> sqlite
         api --> top5 --> sqlite
@@ -43,9 +47,11 @@ flowchart TB
     end
 
     secrets["Ignored .env<br/>API token · Jupyter token<br/>profile / area · badge thresholds"]
+    musicbrainz["MusicBrainz public API<br/>tag + country search<br/>1 request/second"]
 
     listener --> browser
     browser -->|"GET / · GET /api/pulse"| api
+    discovery --> musicbrainz
     browser -->|"Bearer token for writes"| api
     browser <--> heatflow
     browser --> top5
@@ -62,7 +68,8 @@ flowchart TB
 |---|---|
 | Experience | FastAPI-served landing page; LIVEPULSE™ pushes live SVG refreshes; 30-second polling fallback; authorized audio controls; browser-local HeatFlow playlist and popup; Top 5 contest forum |
 | API | FastAPI served by Uvicorn; public pulse summary and SSE events; bearer-token protected writes; profile, badges, listens, votes, source intake and operator rights review |
-| Source intake | HTTPS links from allowlisted media hosts only; no scraping, metadata fetch, audio download, or automatic outreach; each lead gets an optional in-app Founder’s Circle RSVP |
+| Archive discovery | MusicBrainz public artist search; up to 10 candidates each for North American Hip-Hop & Drill, Hard Rock, Blues, Underground, and Indie; candidate metadata keeps attribution and waits for operator approval |
+| Source intake | HTTPS links from allowlisted media hosts only; no scraping, audio download, or automatic outreach; each lead gets an optional in-app Founder’s Circle RSVP |
 | Rights gate | Operator records `cleared` or `rejected` plus a short basis; the API blocks linked uploads unless cleared. This records a decision but does not independently verify legal documents |
 | Top 5 contest | Submit five distinct Pulse-library tracks in order; an organizer publishes the selected winner. No public accounts or audience voting in this local POC |
 | Spark insight | Track-position listens are aggregated; position-3 play share is paired with artists in positions 1 and 2. Descriptive only, not causal or a quality rating |
@@ -107,13 +114,13 @@ The vote prompt threshold (`50`), upload maximum (`25 MiB`), allowed audio forma
 
 | Agentic concern | Current state | Next wiring step |
 |---|---|---|
-| Goal | Help listeners discover local artists and find independent music through rights-safe source links | Use the source-intake task contract; do not treat public links as redistribution permission |
-| Inputs / context | Recent listens, area-matched votes, artist age/activity, track metadata | Add explicit context limits and source attribution |
-| Tools | Pulse HTTP API; Jupyter for local analysis | Restrict intake/review operations to the operator; keep voting, rights review, and publishing user-confirmed |
-| Memory | SQLite stores MVP records; Docker persistence is configured, while the current host run uses `messages.db` | Define retention, event history, and per-user data boundaries |
-| Model | Ollama container is configured in the separate n8n stack; no model is selected or loaded for Pulse | Choose a model and resource limits, then connect it through an approved workflow |
-| Orchestration | n8n exists as a separate stack; no Pulse workflow or shared network is configured | Add a reviewed n8n workflow and authenticated connection to the Pulse API |
+| Goal | Find North American artists and stage attributed profile candidates | Use the source-intake task contract for separately submitted media links; never treat public links as distribution permission |
+| Inputs / context | MusicBrainz tags, artist names, country, begin-area, and source record; five fixed genre queries | Tags and metadata are discovery hints, not verified claims |
+| Tools | MusicBrainz artist search through Pulse; token-protected candidate review API; Jupyter for local analysis | Keep candidate approval, rights review, voting, and publishing user-confirmed |
+| Memory | SQLite stores pending/reviewed candidates and artists; Docker persistence is configured, while the current host run uses `messages.db` | Define retention, event history, and per-user data boundaries |
+| Model | Archive discovery uses bounded deterministic MusicBrainz searches; Ollama remains configured in the separate n8n stack and is not used by this workflow | Choose a model and resource limits only if model-assisted research is added later |
+| Orchestration | Pulse queries MusicBrainz and stores pending candidates directly; n8n remains a separate stack | Connect a reviewed n8n workflow only if a separate orchestration layer is needed |
 | Credentials | Pulse API and Jupyter use distinct `.env` tokens | Use separate least-privilege credentials for any future agent; never put secrets in prompts or notebooks |
 | Guardrails | Uploads require rights confirmation; linked intake must be marked cleared; 25 MiB cap; no platform scraping/downloads; votes are optional and area-string matched | Add verified user accounts, authorization scopes, abuse controls, and auditable review actions before public launch |
 
-The current deployment is a single local profile and one shared API write token, not public multi-user authentication. The configured n8n/Ollama containers are separate and do not currently call the Pulse API.
+The current deployment is a single local profile and one shared API write token, not public multi-user authentication. The configured n8n/Ollama containers are separate and do not currently call the Pulse API. MusicBrainz community tags are not verified genre, rights, independence, or activity statements; every archive candidate stays pending until an operator reviews it.

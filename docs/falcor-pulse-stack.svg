@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1480" role="img" aria-labelledby="title description">
   <title id="title">FalCor Pulse proof-of-concept stack</title>
-  <desc id="description">Current Pulse MVP architecture, HeatFlow, link-only music source intake, rights-review gate, runtime variables, and future agentic integration boundary.</desc>
+  <desc id="description">Current Pulse MVP architecture, MusicBrainz artist discovery queue, HeatFlow, link-only source intake, rights-review gate, and separate n8n/Ollama stack.</desc>
   <defs>
     <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#35d6ff"/>
@@ -148,26 +148,26 @@
   <text x="1236" y="994" class="body">Linked uploads require an operator-cleared source</text>
   <text x="1236" y="1030" class="small">Area is a setting; public multi-user auth is not included</text>
 
-  <rect x="40" y="1130" width="1720" height="300" rx="24" fill="#0c1020" stroke="#8d70c9" stroke-dasharray="9 8"/>
-  <text x="70" y="1170" class="section" fill="#c6a9ff">AGENTIC PATH · PARTLY CONFIGURED, NOT CONNECTED TO PULSE</text>
+  <rect x="40" y="1130" width="1720" height="300" rx="24" fill="#0c1020" stroke="#35d6ff"/>
+  <text x="70" y="1170" class="section">AGENTIC ARCHIVE DISCOVERY · MUSICBRAINZ LIVE; LLM NOT CONNECTED</text>
 
-  <rect x="70" y="1200" width="430" height="180" rx="18" class="card-future"/>
+  <rect x="70" y="1200" width="430" height="180" rx="18" class="card-current"/>
   <text x="96" y="1240" class="card-title">Objective / context</text>
-  <text x="96" y="1277" class="body">Discover artists via rights-safe source links</text>
-  <text x="96" y="1308" class="body">No scraping or audio download; summarize changes</text>
-  <text x="96" y="1342" class="small">Task contract defines attribution and human review</text>
+  <text x="96" y="1277" class="body">MusicBrainz tag + North America search</text>
+  <text x="96" y="1308" class="body">Five genres · up to 10 candidates each</text>
+  <text x="96" y="1342" class="small">Artist metadata only; review each candidate</text>
 
-  <rect x="550" y="1200" width="430" height="180" rx="18" class="card-future"/>
+  <rect x="550" y="1200" width="430" height="180" rx="18" class="card-current"/>
   <text x="576" y="1240" class="card-title">Tools / memory / policy</text>
-  <text x="576" y="1277" class="body">Tool: Pulse API; operator controls rights review</text>
-  <text x="576" y="1308" class="body">Memory candidate: SQLite event history</text>
-  <text x="576" y="1342" class="small">Keep votes/publishing user-confirmed; audit actions</text>
+  <text x="576" y="1277" class="body">Pulse API · MusicBrainz · SQLite queue</text>
+  <text x="576" y="1308" class="body">Operator approves or rejects every profile</text>
+  <text x="576" y="1342" class="small">No tracks, rights clearance, or artist outreach</text>
 
   <rect x="1030" y="1200" width="690" height="180" rx="18" class="card-future"/>
-  <text x="1056" y="1240" class="card-title">Existing separate n8n + Ollama stack</text>
+  <text x="1056" y="1240" class="card-title">Separate n8n + Ollama stack</text>
   <text x="1056" y="1277" class="body">n8n :5678 ↔ Ollama :11434 on n8n-network</text>
-  <text x="1056" y="1308" class="body">No Pulse workflow, shared network, or model selected</text>
-  <text x="1056" y="1342" class="small">Next: choose model / limits; review workflow; use scoped API credentials</text>
+  <text x="1056" y="1308" class="body">Not used by archive discovery; no model selected</text>
+  <text x="1056" y="1342" class="small">Future option: reviewed workflow with scoped API credentials</text>
 
   <path d="M1500 1200H1770V132H660V220" class="future-connector"/>
   <rect x="850" y="115" width="370" height="27" rx="9" fill="#080b18"/>

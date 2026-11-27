@@ -154,6 +154,106 @@ def test_pulse_summary_sends_limited_catalog_to_n8n(client, monkeypatch):
     assert response.json() == {"summary": "Local Echo is the top artist."}
 
 
+def test_archive_discovery_stages_candidates_for_manual_review(client, monkeypatch):
+    monkeypatch.setenv("PULSE_API_TOKEN", "test-token")
+    headers = {"Authorization": "Bearer test-token"}
+    calls = []
+
+    def fake_search(genre, limit):
+        calls.append((genre, limit))
+        return [
+            {
+                "musicbrainz_id": f"mbid-{len(calls)}",
+                "name": f"Artist {len(calls)}",
+                "area": "Toronto",
+                "country": "CA",
+                "disambiguation": "",
+                "tags": [genre.casefold()],
+                "source_url": f"https://musicbrainz.org/artist/mbid-{len(calls)}",
+            }
+        ]
+
+    monkeypatch.setattr(main, "search_musicbrainz", fake_search)
+
+    assert client.post("/api/archive/discover").status_code == 401
+    invalid = client.post(
+        "/api/archive/discover",
+        headers=headers,
+        json={"genres": ["made up"]},
+    )
+    assert invalid.status_code == 422
+
+    discovered = client.post("/api/archive/discover", headers=headers)
+    assert discovered.status_code == 200
+    result = discovered.json()
+    assert len(calls) == 5
+    assert all(limit == 10 for _, limit in calls)
+    assert result["new_candidates"] == 5
+    assert len(result["candidates"]) == 5
+    assert result["region"] == "North America (United States, Canada, and Mexico)"
+
+    candidate = result["candidates"][0]
+    assert client.get("/api/archive/candidates").status_code == 401
+    assert client.get("/api/archive/candidates", headers=headers).json()[0]["status"] == "pending"
+
+    approved = client.post(
+        f"/api/archive/candidates/{candidate['id']}/review",
+        headers=headers,
+        json={"decision": "approved"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["created_artist"] is True
+    artist = next(
+        item
+        for item in client.get("/api/pulse").json()["artists"]
+        if item["id"] == approved.json()["artist_id"]
+    )
+    assert artist["name"] == candidate["name"]
+    assert artist["area"] == candidate["area"]
+    assert artist["genre"] == candidate["genre"]
+    assert artist["tracks"] == []
+    assert client.post(
+        f"/api/archive/candidates/{candidate['id']}/review",
+        headers=headers,
+        json={"decision": "approved"},
+    ).status_code == 409
+
+
+def test_archive_discovery_does_not_stage_partial_batch_on_provider_failure(client, monkeypatch):
+    monkeypatch.setenv("PULSE_API_TOKEN", "test-token")
+    calls = 0
+
+    def failing_search(genre, limit):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise main.URLError("provider unavailable")
+        return [
+            {
+                "musicbrainz_id": "partial-mbid",
+                "name": "Partial",
+                "area": "Toronto",
+                "country": "CA",
+                "disambiguation": "",
+                "tags": [],
+                "source_url": "https://musicbrainz.org/artist/partial-mbid",
+            }
+        ]
+
+    monkeypatch.setattr(main, "search_musicbrainz", failing_search)
+    response = client.post(
+        "/api/archive/discover",
+        headers={"Authorization": "Bearer test-token"},
+        json={"genres": ["Blues", "Indie"]},
+    )
+
+    assert response.status_code == 502
+    assert client.get(
+        "/api/archive/candidates",
+        headers={"Authorization": "Bearer test-token"},
+    ).json() == []
+
+
 def test_livepulse_publishes_events_to_subscribers_from_worker_threads():
     async def verify_event_delivery():
         previous_loop = main.pulse_event_loop

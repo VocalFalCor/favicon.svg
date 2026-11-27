@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 
+from pulse.archive import ARCHIVE_GENRES, search_musicbrainz
 from pulse.heat import heat_score, heat_visuals
 
 
@@ -173,6 +174,36 @@ class Top5Publish(BaseModel):
     winner_entry_id: str = Field(min_length=1)
 
 
+class ArchiveDiscoverRequest(BaseModel):
+    genres: list[str] = Field(
+        default_factory=lambda: list(ARCHIVE_GENRES),
+        min_length=1,
+        max_length=len(ARCHIVE_GENRES),
+    )
+    limit_per_genre: int = Field(default=10, ge=1, le=10)
+
+    @field_validator("genres")
+    @classmethod
+    def validate_genres(cls, values: list[str]) -> list[str]:
+        if any(genre not in ARCHIVE_GENRES for genre in values):
+            raise ValueError(f"Genres must be selected from: {', '.join(ARCHIVE_GENRES)}")
+        if len(set(values)) != len(values):
+            raise ValueError("Choose each genre only once")
+        return values
+
+
+class ArchiveCandidateReview(BaseModel):
+    decision: str
+
+    @field_validator("decision")
+    @classmethod
+    def validate_decision(cls, value: str) -> str:
+        decision = value.strip().lower()
+        if decision not in {"approved", "rejected"}:
+            raise ValueError("Decision must be approved or rejected")
+        return decision
+
+
 def connect_db() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_FILE, timeout=10)
     connection.row_factory = sqlite3.Row
@@ -195,9 +226,26 @@ def init_db() -> None:
                 area TEXT NOT NULL,
                 genre TEXT NOT NULL DEFAULT '',
                 bio TEXT NOT NULL DEFAULT '',
+                musicbrainz_id TEXT UNIQUE,
                 heat_gain_hits INTEGER NOT NULL DEFAULT 0,
                 heat_gain_last_result TEXT NOT NULL DEFAULT 'waiting',
                 created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS archive_candidates (
+                id TEXT PRIMARY KEY,
+                musicbrainz_id TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                area TEXT NOT NULL,
+                country TEXT NOT NULL,
+                genre TEXT NOT NULL,
+                disambiguation TEXT NOT NULL DEFAULT '',
+                tags_json TEXT NOT NULL DEFAULT '[]',
+                source_url TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'approved', 'rejected')),
+                artist_id TEXT REFERENCES artists(id),
+                discovered_at TEXT NOT NULL,
+                reviewed_at TEXT
             );
             CREATE TABLE IF NOT EXISTS tracks (
                 id TEXT PRIMARY KEY,
@@ -300,6 +348,14 @@ def init_db() -> None:
         artist_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(artists)").fetchall()
         }
+        if "musicbrainz_id" not in artist_columns:
+            connection.execute("ALTER TABLE artists ADD COLUMN musicbrainz_id TEXT")
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS artists_musicbrainz_id_idx
+            ON artists(musicbrainz_id) WHERE musicbrainz_id IS NOT NULL
+            """
+        )
         if "genre" not in artist_columns:
             connection.execute("ALTER TABLE artists ADD COLUMN genre TEXT NOT NULL DEFAULT ''")
         if "bio" not in artist_columns:
@@ -556,6 +612,204 @@ def get_pulse() -> dict:
         "preview_nodes": [
             {"heat_score": score, **heat_visuals(score)} for score in (18, 55, 90)
         ],
+    }
+
+
+@app.post(
+    "/api/archive/discover",
+    dependencies=[Depends(require_api_token)],
+)
+def discover_archive_candidates(
+    payload: ArchiveDiscoverRequest = ArchiveDiscoverRequest(),
+) -> dict:
+    discovered: dict[str, tuple[str, dict]] = {}
+    try:
+        for genre in payload.genres:
+            for candidate in search_musicbrainz(genre, payload.limit_per_genre):
+                discovered.setdefault(candidate["musicbrainz_id"], (genre, candidate))
+    except HTTPError as error:
+        raise HTTPException(
+            status_code=502,
+            detail=f"MusicBrainz returned HTTP {error.code}; try discovery again later",
+        ) from error
+    except (URLError, TimeoutError) as error:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not reach MusicBrainz; try discovery again later",
+        ) from error
+    except (ValueError, UnicodeDecodeError, TypeError) as error:
+        raise HTTPException(
+            status_code=502,
+            detail="MusicBrainz returned an invalid discovery response",
+        ) from error
+
+    discovered_at = timestamp(utc_now())
+    with closing(connect_db()) as connection:
+        with connection:
+            new_candidates = 0
+            for genre, candidate in discovered.values():
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO archive_candidates (
+                        id, musicbrainz_id, name, area, country, genre,
+                        disambiguation, tags_json, source_url, discovered_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(uuid.uuid4()),
+                        candidate["musicbrainz_id"],
+                        candidate["name"],
+                        candidate["area"],
+                        candidate["country"],
+                        genre,
+                        candidate["disambiguation"],
+                        json.dumps(candidate["tags"]),
+                        candidate["source_url"],
+                        discovered_at,
+                    ),
+                )
+                new_candidates += max(cursor.rowcount, 0)
+            candidates = connection.execute(
+                """
+                SELECT id, musicbrainz_id, name, area, country, genre,
+                       disambiguation, tags_json, source_url, status,
+                       artist_id, discovered_at, reviewed_at
+                FROM archive_candidates
+                WHERE musicbrainz_id IN ({})
+                ORDER BY genre COLLATE NOCASE, name COLLATE NOCASE
+                """.format(",".join("?" for _ in discovered)),
+                tuple(discovered),
+            ).fetchall() if discovered else []
+
+    return {
+        "provider": "MusicBrainz",
+        "region": "North America (United States, Canada, and Mexico)",
+        "new_candidates": new_candidates,
+        "candidates": [
+            {
+                **{key: row[key] for key in row.keys() if key != "tags_json"},
+                "tags": json.loads(row["tags_json"]),
+            }
+            for row in candidates
+        ],
+    }
+
+
+@app.get(
+    "/api/archive/candidates",
+    dependencies=[Depends(require_api_token)],
+)
+def list_archive_candidates() -> list[dict]:
+    with closing(connect_db()) as connection:
+        rows = connection.execute(
+            """
+            SELECT id, musicbrainz_id, name, area, country, genre,
+                   disambiguation, tags_json, source_url, status,
+                   artist_id, discovered_at, reviewed_at
+            FROM archive_candidates
+            ORDER BY
+                CASE status WHEN 'pending' THEN 0 ELSE 1 END,
+                discovered_at DESC,
+                name COLLATE NOCASE
+            LIMIT 200
+            """
+        ).fetchall()
+    return [
+        {
+            **{key: row[key] for key in row.keys() if key != "tags_json"},
+            "tags": json.loads(row["tags_json"]),
+        }
+        for row in rows
+    ]
+
+
+@app.post(
+    "/api/archive/candidates/{candidate_id}/review",
+    dependencies=[Depends(require_api_token)],
+)
+def review_archive_candidate(
+    candidate_id: str, payload: ArchiveCandidateReview
+) -> dict:
+    reviewed_at = timestamp(utc_now())
+    created_artist_id = None
+    approved_artist_id = None
+    with closing(connect_db()) as connection:
+        with connection:
+            candidate = connection.execute(
+                "SELECT * FROM archive_candidates WHERE id = ?",
+                (candidate_id,),
+            ).fetchone()
+            if candidate is None:
+                raise HTTPException(status_code=404, detail="Archive candidate not found")
+            if candidate["status"] != "pending":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Archive candidate has already been reviewed",
+                )
+
+            if payload.decision == "approved":
+                artist = connection.execute(
+                    "SELECT id FROM artists WHERE musicbrainz_id = ?",
+                    (candidate["musicbrainz_id"],),
+                ).fetchone()
+                if artist is None:
+                    duplicate = connection.execute(
+                        """
+                        SELECT id FROM artists
+                        WHERE name = ? COLLATE NOCASE AND area = ? COLLATE NOCASE
+                        """,
+                        (candidate["name"], candidate["area"]),
+                    ).fetchone()
+                    if duplicate is not None:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="An artist with this name and area already exists",
+                        )
+                    created_artist_id = str(uuid.uuid4())
+                    connection.execute(
+                        """
+                        INSERT INTO artists (
+                            id, name, area, genre, musicbrainz_id, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            created_artist_id,
+                            candidate["name"],
+                            candidate["area"],
+                            candidate["genre"],
+                            candidate["musicbrainz_id"],
+                            reviewed_at,
+                        ),
+                    )
+                    artist_id = created_artist_id
+                else:
+                    artist_id = artist["id"]
+                approved_artist_id = artist_id
+                connection.execute(
+                    """
+                    UPDATE archive_candidates
+                    SET status = 'approved', artist_id = ?, reviewed_at = ?
+                    WHERE id = ?
+                    """,
+                    (artist_id, reviewed_at, candidate_id),
+                )
+            else:
+                connection.execute(
+                    """
+                    UPDATE archive_candidates
+                    SET status = 'rejected', reviewed_at = ?
+                    WHERE id = ?
+                    """,
+                    (reviewed_at, candidate_id),
+                )
+
+    if created_artist_id is not None:
+        publish_pulse_event("artist_added")
+    return {
+        "id": candidate_id,
+        "status": payload.decision,
+        "artist_id": approved_artist_id,
+        "created_artist": created_artist_id is not None,
     }
 
 
